@@ -1,7 +1,7 @@
 # hackage-server
 
 
-[![Build Status](https://travis-ci.org/haskell/hackage-server.png?branch=master)](https://travis-ci.org/dzackgarza/hackage-server)
+[![Build Status](https://travis-ci.org/dzackgarza/hackage-server.png?branch=master)](https://travis-ci.org/dzackgarza/hackage-server)
 
 This is the `hackage-server` code. This is what powers <http://hackage.haskell.org>, and many other private hackage instances.
 
