@@ -12,7 +12,7 @@ env:
 
 notifications:
   email: false
-  irc: "chat.freenode.net#hackage"
+  #irc: "chat.freenode.net#hackage"
 
 before_install:
  - sudo add-apt-repository -y ppa:hvr/ghc
