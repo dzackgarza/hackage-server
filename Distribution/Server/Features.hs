@@ -42,6 +42,7 @@ import Distribution.Server.Features.LegacyPasswds       (initLegacyPasswdsFeatur
 import Distribution.Server.Features.EditCabalFiles      (initEditCabalFilesFeature)
 import Distribution.Server.Features.AdminFrontend       (initAdminFrontendFeature)
 import Distribution.Server.Features.HoogleData          (initHoogleDataFeature)
+import Distribution.Server.Features.Ranking             (initRankingFeature)
 #endif
 import Distribution.Server.Features.ServerIntrospect (serverIntrospectFeature)
 
@@ -137,6 +138,8 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                                initAdminFrontendFeature env
     mkHoogleDataFeature     <- logStartup "hoogle" $
                                initHoogleDataFeature env
+    mkRankingFeature        <- logStartup "ranking" $
+                               initRankingFeature env
 #endif
 
     loginfo verbosity "Initialising features, part 2"
@@ -159,7 +162,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                          coreFeature
 
 #ifndef MINIMAL
-    tarIndexCacheFeature <- mkTarIndexCacheFeature 
+    tarIndexCacheFeature <- mkTarIndexCacheFeature
                               usersFeature
 
     packageContentsFeature <- mkPackageContentsFeature
@@ -277,10 +280,12 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                               userSignupFeature
                               legacyPasswdsFeature
 
-    hoogleDataFeature <- mkHoogleDataFeature
+    hoogleDataFeature   <- mkHoogleDataFeature
                            coreFeature
                            documentationCoreFeature
                            tarIndexCacheFeature
+
+    rankingFeature      <- mkRankingFeature
 #endif
 
     -- The order of initialization above should be the same as
@@ -316,6 +321,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
          , editCabalFeature
          , adminFrontendFeature
          , getFeatureInterface hoogleDataFeature
+         , getFeatureInterface rankingFeature
 #endif
          , staticFilesFeature
          , serverIntrospectFeature allFeatures
