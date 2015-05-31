@@ -39,25 +39,25 @@ instance IsHackageFeature RankingFeature where
 -- --> IO ()
 initRankingFeature :: ServerEnv
                    -> IO (IO RankingFeature)
-initRankingFeature = undefined
+initRankingFeature = error "initRankingFeature"
 
 -- Returns the number of votes a single package has.
 queryGetNumberOfVotes :: (voteMap -> PackageName) -> voteMap -> Int
-queryGetNumberOfVotes = undefined
+queryGetNumberOfVotes = error "queryGetNumberofVotes"
 
 -- Post an upvote to a package, increasing it's ranking by one.
 -- (Each user should only be able to add one upvote to a given package)
 putUpVote :: (voteMap -> PackageName) -> voteMap
-putUpVote = undefined
+putUpVote = error "putUpVote"
 
 -- Revoke a previous upvote
 -- (Should only work if a user has previously +1'd a package)
 putRemoveVote :: (voteMap -> PackageName) -> voteMap
-putRemoveVote = undefined
+putRemoveVote = error "putRemoveVote"
 
 -- Return a list of packages, sorted by votes (descending)
 queryGetBestPackages :: voteMap -> [(PackageName, Int)]
-queryGetBestPackages = undefined
+queryGetBestPackages = error "queryGetBestPackages"
 
 rankingFeature :: CoreFeature -> RankingFeature
 rankingFeature c
@@ -67,7 +67,7 @@ rankingFeature c
       featureResources        = []
       , featureState          = []
       , featureCaches         = []
-      , featurePostInit       = undefined
+      , featurePostInit       = error "featurePostInit"
       }
 
 -- searchFeatureInterface = (emptyHackageFeature "ranking") {
