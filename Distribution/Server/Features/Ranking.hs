@@ -73,15 +73,6 @@ returnOne d = ok . toResponse $
                           , ("param2", 2 :: VoteTally)
                           ]
 
-array :: [Value] -> Value
-array = Array . Vector.fromList
-
-object :: [(Text.Text, Value)] -> Value
-object = Object . HashMap.fromList
-
-string :: String -> Value
-string = String . Text.pack
-
 -- | Returns the number of votes a single package has.
 queryGetNumberOfVotes :: (voteMap -> PackageName) -> voteMap -> Int
 queryGetNumberOfVotes = error "queryGetNumberofVotes"
