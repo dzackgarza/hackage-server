@@ -5,7 +5,8 @@ module Distribution.Server.Pages.Package (
     renderDependencies,
     renderVersion,
     renderFields,
-    renderDownloads
+    renderDownloads,
+    renderChangelog
   ) where
 
 import Distribution.Server.Features.PreferredVersions
@@ -17,6 +18,7 @@ import Distribution.Server.Pages.Package.HaddockHtml
 import Distribution.Server.Packages.ModuleForest
 import Distribution.Server.Packages.Render
 import Distribution.Server.Users.Types (userStatus, userName, isActiveAccount)
+import Data.TarIndex (TarIndex)
 
 import Distribution.Package
 import Distribution.PackageDescription as P
@@ -26,14 +28,23 @@ import Distribution.Text        (display)
 import Text.XHtml.Strict hiding (p, name, title, content)
 
 import Data.Monoid              (Monoid(..))
-import Data.Maybe               (maybeToList)
+import Data.Maybe               (maybeToList, isJust)
 import Data.List                (intersperse, intercalate)
-import System.FilePath.Posix    ((</>), (<.>))
-import System.Locale            (defaultTimeLocale)
+import System.FilePath.Posix    ((</>), (<.>), takeFileName)
+import Data.Time.Locale.Compat  (defaultTimeLocale)
 import Data.Time.Format         (formatTime)
 
-packagePage :: PackageRender -> [Html] -> [Html] -> [(String, Html)] -> [(String, Html)] -> Maybe URL -> Bool -> Html
-packagePage render headLinks top sections bottom docURL isCandidate =
+import Cheapskate (markdown, Options(..))
+import Cheapskate.Html (renderDoc)
+
+import qualified Text.Blaze.Html.Renderer.Pretty as Blaze (renderHtml)
+import qualified Data.Text.Encoding as T (decodeUtf8)
+import qualified Data.ByteString.Lazy as BS (ByteString, toStrict)
+
+packagePage :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
+            -> [(String, Html)] -> Maybe TarIndex -> URL -> Bool
+            -> Html
+packagePage render headLinks top sections bottom mdocIndex docURL isCandidate =
     hackagePageWith [canonical] docTitle docSubtitle docBody [docFooter]
   where
     pkgid   = rendPkgId render
@@ -52,7 +63,7 @@ packagePage render headLinks top sections bottom docURL isCandidate =
              renderHeads,
              top,
              pkgBody render sections,
-             moduleSection render docURL,
+             moduleSection render mdocIndex docURL,
              packageFlags render,
              downloadSection render,
              maintainerSection pkgid isCandidate,
@@ -83,21 +94,50 @@ pkgBody render sections =
  ++ propertySection sections
 
 descriptionSection :: PackageRender -> [Html]
-descriptionSection PackageRender{..} =
-    prologue (description rendOther)
- ++ [ hr
-    , ulist << li << changelogLink]
+descriptionSection p@PackageRender{..} =
+        prologue p
+     ++ readmeLink
   where
-    changelogLink
-      | rendHasChangeLog = anchor ! [href changeLogURL] << "Changelog"
-      | otherwise        = toHtml << "No changelog available"
-    changeLogURL  = rendPkgUri </> "changelog"
+    readmeLink = case rendReadme of
+      Just _ -> [ hr
+                , ulist << li << anchor ! [href readmeURL] << "ReadMe"
+                ]
+      _      -> []
+    readmeURL  = rendPkgUri </> "readme"
 
-prologue :: String -> [Html]
-prologue [] = []
-prologue desc = case tokenise desc >>= parseHaddockParagraphs of
-    Nothing  -> [paragraph << p | p <- paragraphs desc]
-    Just doc -> [markup htmlMarkup doc]
+prologue :: PackageRender -> [Html]
+prologue PackageRender{..} =
+  renderHaddock (description rendOther)
+{-
+  --TODO: need to improve the display of the description / readme
+  -- just having both is too much in many cases. Perhaps we should
+  -- use the readme only if the description is empty. And otherwise just link.
+  -- Also, we need to limit the length of both the description and readme
+  -- or it pushes everything else off the page
+  (case rendReadme of
+    Nothing -> []
+    Just (_, readme) -> [renderMarkdown readme])
+-}
+
+renderHaddock :: String -> [Html]
+renderHaddock []   = []
+renderHaddock desc =
+  case tokenise desc >>= parseHaddockParagraphs of
+      Nothing  -> [paragraph << p | p <- paragraphs desc]
+      Just doc -> [markup htmlMarkup doc]
+
+renderMarkdown :: BS.ByteString -> Html
+renderMarkdown = primHtml . Blaze.renderHtml . renderDoc . markdown opts
+               . T.decodeUtf8 . BS.toStrict
+  where
+    opts =
+      Options
+        { sanitize = True
+        , allowRawHtml = False
+        , preserveHardBreaks = False
+        , debug = False
+        }
+
 
 -- Break text into paragraphs (separated by blank lines)
 paragraphs :: String -> [String]
@@ -177,17 +217,20 @@ packageFlags render =
                  if flagDefault flag then "Enabled" else "Disabled"]
         code = (thespan ! [theclass "code"] <<)
 
-moduleSection :: PackageRender -> Maybe URL -> [Html]
-moduleSection render docURL = maybeToList $ fmap msect (rendModules render)
-  where msect lib = toHtml
+moduleSection :: PackageRender -> Maybe TarIndex -> URL -> [Html]
+moduleSection render mdocIndex docURL =
+    maybeToList $ fmap msect (rendModules render mdocIndex)
+  where msect libModuleForrest = toHtml
             [ h2 << "Modules"
-            , renderModuleForest docURL lib
-            , renderDocIndexLink docURL
+            , renderModuleForest docURL libModuleForrest
+            , renderDocIndexLink
             ]
-        renderDocIndexLink = maybe mempty $ \docURL' ->
-            let docIndexURL = docURL' </> "doc-index.html"
+        renderDocIndexLink
+          | isJust mdocIndex =
+            let docIndexURL = docURL </> "doc-index.html"
             in  paragraph ! [thestyle "font-size: small"]
                   << ("[" +++ anchor ! [href docIndexURL] << "Index" +++ "]")
+          | otherwise = mempty
 
 propertySection :: [(String, Html)] -> [Html]
 propertySection sections =
@@ -241,6 +284,15 @@ renderVersion (PackageIdentifier pname pversion) allVersions info =
             UnpreferredVersion -> [theclass "unpreferred"]
         infoHtml = case info of Nothing -> noHtml; Just str -> " (" +++ (anchor ! [href str] << "info") +++ ")"
 
+renderChangelog :: PackageRender -> (String, Html)
+renderChangelog render =
+    ("Change log", case rendChangeLog render of
+                     Nothing            -> toHtml "None available"
+                     Just (_,_,_,fname) -> anchor ! [href changeLogURL]
+                                                 << takeFileName fname)
+  where
+    changeLogURL  = rendPkgUri render </> "changelog"
+
 -- We don't keep currently per-version downloads in memory; if we decide that
 -- it is important to show this all the time, we can reenable
 renderDownloads :: Int -> Int -> {- Int -> Version -> -} (String, Html)
@@ -252,7 +304,7 @@ renderDownloads totalDown recentDown {- versionDown version -} =
 renderFields :: PackageRender -> [(String, Html)]
 renderFields render = [
         -- Cabal-Version
-        ("License",     toHtml $ rendLicenseName render),
+        ("License",     rendLicense),
         ("Copyright",   toHtml $ P.copyright desc),
         ("Author",      toHtml $ author desc),
         ("Maintainer",  maintainField $ rendMaintainer render),
@@ -290,6 +342,16 @@ renderFields render = [
         Nothing -> strong ! [theclass "warning"] << toHtml "none"
         Just n  -> toHtml n
     sourceRepositoryField sr = sourceRepositoryToHtml sr
+    
+    rendLicense = case rendLicenseFiles render of
+      []            -> toHtml (rendLicenseName render)
+      [licenseFile] -> anchor ! [ href (rendPkgUri render </> "src" </> licenseFile) ]
+                             << rendLicenseName render
+      _licenseFiles -> toHtml (rendLicenseName render)
+                       +++ "["
+                       +++ anchor ! [ href (rendPkgUri render </> "src") ]
+                                 << "multiple licese files"
+                       +++ "]"
 
 
 sourceRepositoryToHtml :: SourceRepo -> Html
@@ -378,26 +440,29 @@ vList :: [Html] -> Html
 vList = concatHtml . intersperse br
 -----------------------------------------------------------------------------
 
-renderModuleForest :: Maybe URL -> ModuleForest -> Html
-renderModuleForest mb_url forest =
+renderModuleForest :: URL -> ModuleForest -> Html
+renderModuleForest docUrl forest =
     thediv ! [identifier "module-list"] << renderForest [] forest
     where
       renderForest _       [] = noHtml
       renderForest pathRev ts = myUnordList $ map renderTree ts
           where
-            renderTree (Node s isModule subs) =
-                    ( if isModule then moduleEntry newPath else italics << s )
+            renderTree (Node s isModule hasDocs subs) =
+                    ( if isModule then moduleEntry hasDocs newPath
+                                  else italics << s )
                 +++ renderForest newPathRev subs
                 where
                   newPathRev = s:pathRev
                   newPath = reverse newPathRev
 
-      moduleEntry path =
-          thespan ! [theclass "module"] << maybe modName linkedName mb_url path
+      moduleEntry False path =
+          thespan ! [theclass "module"] << modName path
+      moduleEntry True path =
+          thespan ! [theclass "module"] << linkedName path
       modName path = toHtml (intercalate "." path)
-      linkedName url path = anchor ! [href modUrl] << modName path
+      linkedName path = anchor ! [href modUrl] << modName path
           where
-            modUrl = url ++ "/" ++ intercalate "-" path ++ ".html"
+            modUrl = docUrl ++ "/" ++ intercalate "-" path ++ ".html"
       myUnordList :: HTML a => [a] -> Html
       myUnordList = unordList ! [theclass "modules"]
 

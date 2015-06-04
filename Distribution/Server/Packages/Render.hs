@@ -10,14 +10,15 @@ module Distribution.Server.Packages.Render (
   , categorySplit,
   ) where
 
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isJust, maybeToList)
 import Control.Monad (guard)
 import Data.Char (toLower, isSpace)
 import qualified Data.Map as Map
 import qualified Data.Vector as Vec
 import Data.Ord (comparing)
-import Data.List (sortBy)
+import Data.List (sortBy, intercalate)
 import Data.Time.Clock (UTCTime)
+import System.FilePath.Posix ((</>), (<.>))
 
 -- Cabal
 import Distribution.PackageDescription
@@ -25,12 +26,16 @@ import Distribution.PackageDescription.Configuration
 import Distribution.Package
 import Distribution.Text
 import Distribution.Version
+import Distribution.ModuleName as ModuleName
 
 -- hackage-server
+import Distribution.Server.Framework.CacheControl (ETag)
 import Distribution.Server.Packages.Types
 import Distribution.Server.Packages.ModuleForest
 import qualified Distribution.Server.Users.Users as Users
 import Distribution.Server.Users.Types
+import qualified Data.TarIndex as TarIndex
+import Data.TarIndex (TarIndex, TarEntryOffset)
 
 -- This should provide the caller enough information to encode the package information
 -- in its particular format (text, html, json) with minimal effort on its part.
@@ -40,12 +45,14 @@ data PackageRender = PackageRender {
     rendDepends      :: [Dependency],
     rendExecNames    :: [String],
     rendLicenseName  :: String,
+    rendLicenseFiles :: [FilePath],
     rendMaintainer   :: Maybe String,
     rendCategory     :: [String],
     rendRepoHeads    :: [(RepoType, String, SourceRepo)],
-    rendModules      :: Maybe ModuleForest,
+    rendModules      :: Maybe TarIndex -> Maybe ModuleForest,
     rendHasTarball   :: Bool,
-    rendHasChangeLog :: Bool,
+    rendChangeLog    :: Maybe (FilePath, ETag, TarEntryOffset, FilePath),
+    rendReadme       :: Maybe (FilePath, ETag, TarEntryOffset, FilePath),
     rendUploadInfo   :: (UTCTime, Maybe UserInfo),
     rendUpdateInfo   :: Maybe (Int, UTCTime, Maybe UserInfo),
     rendPkgUri       :: String,
@@ -57,12 +64,13 @@ data PackageRender = PackageRender {
     rendOther        :: PackageDescription
 } deriving (Show)
 
-doPackageRender :: Users.Users -> PkgInfo -> Bool -> IO PackageRender
-doPackageRender users info hasChangeLog = return $ PackageRender
+doPackageRender :: Users.Users -> PkgInfo -> PackageRender
+doPackageRender users info = PackageRender
     { rendPkgId        = pkgInfoId info
     , rendDepends      = flatDependencies genDesc
     , rendExecNames    = map exeName (executables flatDesc)
     , rendLicenseName  = display (license desc) -- maybe make this a bit more human-readable
+    , rendLicenseFiles = licenseFiles desc
     , rendMaintainer   = case maintainer desc of
                            "None" -> Nothing
                            "none" -> Nothing
@@ -72,9 +80,14 @@ doPackageRender users info hasChangeLog = return $ PackageRender
                            []  -> []
                            str -> categorySplit str
     , rendRepoHeads    = catMaybes (map rendRepo $ sourceRepos desc)
-    , rendModules      = fmap (moduleForest . exposedModules) (library flatDesc)
+    , rendModules      = \docindex ->
+                             fmap (moduleForest
+                           . map (\m -> (m, moduleHasDocs docindex m))
+                           . exposedModules)
+                          (library flatDesc)
     , rendHasTarball   = not . Vec.null $ pkgTarballRevisions info
-    , rendHasChangeLog = hasChangeLog
+    , rendChangeLog    = Nothing -- populated later
+    , rendReadme       = Nothing -- populated later
     , rendUploadInfo   = let (utime, uid) = pkgOriginalUploadInfo info
                          in (utime, Users.lookupUserId uid users)
     , rendUpdateInfo   = let maxrevision  = Vec.length (pkgMetadataRevisions info) - 1
@@ -92,6 +105,16 @@ doPackageRender users info hasChangeLog = return $ PackageRender
     flatDesc = flattenPackageDescription genDesc
     desc     = packageDescription genDesc
     pkgUri   = "/package/" ++ display (pkgInfoId info)
+    
+    moduleHasDocs :: Maybe TarIndex -> ModuleName -> Bool
+    moduleHasDocs Nothing       = const False
+    moduleHasDocs (Just doctar) = isJust . TarIndex.lookup doctar
+                                         . moduleDocTarPath (packageId genDesc)
+
+    moduleDocTarPath :: PackageId -> ModuleName -> FilePath
+    moduleDocTarPath pkgid modname =
+      display pkgid ++ "-docs" </>
+      intercalate "-" (ModuleName.components modname) <.> "html"
 
     rendRepo r = do
         guard $ repoKind r == RepoHead
@@ -114,24 +137,29 @@ categorySplit xs = map (dropWhile isSpace) $ splitOn ',' xs
 
 -----------------------------------------------------------------------
 --
--- Flatten the dependencies of a GenericPackageDescription into
--- a simple summary form.
+-- Flatten the dependencies of a GenericPackageDescription into a
+-- simple summary form. Dependency version ranges within each executable
+-- or library are unioned, and the resulting sets are intersected.
 --
 flatDependencies :: GenericPackageDescription -> [Dependency]
 flatDependencies =
       sortOn (\(Dependency pkgname _) -> map toLower (display pkgname))
-    . unionAllDeps . allPkgDeps
+    . combineDepsBy intersectVersionIntervals
+    . concat
+    . map (combineDepsBy unionVersionIntervals)
+    . targetDeps
   where
-    unionAllDeps :: [Dependency] -> [Dependency]
-    unionAllDeps =
+    combineDepsBy :: (VersionIntervals -> VersionIntervals -> VersionIntervals)
+                  -> [Dependency] -> [Dependency]
+    combineDepsBy f =
         map (\(pkgname, ver) -> Dependency pkgname (fromVersionIntervals ver))
       . Map.toList
-      . Map.fromListWith unionVersionIntervals
+      . Map.fromListWith f
       . map (\(Dependency pkgname ver) -> (pkgname, toVersionIntervals ver))
 
-    allPkgDeps :: GenericPackageDescription -> [Dependency]
-    allPkgDeps pkg = maybe [] condTreeDeps (condLibrary pkg)
-                  ++ concatMap (condTreeDeps . snd) (condExecutables pkg)
+    targetDeps :: GenericPackageDescription -> [[Dependency]]
+    targetDeps pkg = map condTreeDeps (maybeToList $ condLibrary pkg)
+                  ++ map (condTreeDeps . snd) (condExecutables pkg)
  
     condTreeDeps :: CondTree v [Dependency] a -> [Dependency]
     condTreeDeps (CondNode _ ds comps) =

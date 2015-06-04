@@ -1,4 +1,4 @@
-{-# LANGUAGE DoRec, RankNTypes, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE RecursiveDo, FlexibleContexts, RankNTypes, NamedFieldPuns, RecordWildCards #-}
 module Distribution.Server.Features.Html (
     HtmlFeature(..),
     initHtmlFeature
@@ -9,7 +9,6 @@ import qualified Distribution.Server.Framework.ResponseContentTypes as Resource
 import Distribution.Server.Framework.Templating
 
 import Distribution.Server.Features.Core
-import Distribution.Server.Features.RecentPackages
 import Distribution.Server.Features.Upload
 import Distribution.Server.Features.BuildReports
 import Distribution.Server.Features.BuildReports.Render
@@ -20,11 +19,13 @@ import Distribution.Server.Features.Search
 import Distribution.Server.Features.Search as Search
 import Distribution.Server.Features.PreferredVersions
 -- [reverse index disabled] import Distribution.Server.Features.ReverseDependencies
+import Distribution.Server.Features.PackageContents (PackageContentsFeature(..))
 import Distribution.Server.Features.PackageList
 import Distribution.Server.Features.Tags
 import Distribution.Server.Features.Mirror
 import Distribution.Server.Features.Distro
 import Distribution.Server.Features.Documentation
+import Distribution.Server.Features.TarIndexCache
 import Distribution.Server.Features.UserDetails
 import Distribution.Server.Features.EditCabalFiles
 
@@ -67,7 +68,7 @@ import qualified Data.Ix    as Ix
 import Data.Time.Format (formatTime)
 import Data.Time.Clock (getCurrentTime)
 import qualified Data.Time.Format.Human as HumanTime
-import System.Locale (defaultTimeLocale)
+import Data.Time.Locale.Compat (defaultTimeLocale)
 
 import Text.XHtml.Strict
 import qualified Text.XHtml.Strict as XHtml
@@ -96,7 +97,7 @@ instance IsHackageFeature HtmlFeature where
 initHtmlFeature :: ServerEnv
                 -> IO (UserFeature
                     -> CoreFeature
-                    -> RecentPackagesFeature
+                    -> PackageContentsFeature
                     -> UploadFeature -> PackageCandidatesFeature
                     -> VersionsFeature
                     -- [reverse index disabled] -> ReverseFeature
@@ -105,6 +106,7 @@ initHtmlFeature :: ServerEnv
                     -> MirrorFeature -> DistroFeature
                     -> DocumentationFeature
                     -> DocumentationFeature
+                    -> TarIndexCacheFeature
                     -> ReportsFeature
                     -> UserDetailsFeature
                     -> IO HtmlFeature)
@@ -130,6 +132,7 @@ initHtmlFeature ServerEnv{serverTemplatesDir, serverTemplatesMode,
               names mirror
               distros
               docsCore docsCandidates
+              tarIndexCache
               reportsCore
               usersdetails -> do
       -- do rec, tie the knot
@@ -141,6 +144,7 @@ initHtmlFeature ServerEnv{serverTemplatesDir, serverTemplatesMode,
                             list names
                             mirror distros
                             docsCore docsCandidates
+                            tarIndexCache
                             reportsCore
                             usersdetails
                             (htmlUtilities core tags)
@@ -172,7 +176,7 @@ initHtmlFeature ServerEnv{serverTemplatesDir, serverTemplatesMode,
 
 htmlFeature :: UserFeature
             -> CoreFeature
-            -> RecentPackagesFeature
+            -> PackageContentsFeature
             -> UploadFeature
             -> PackageCandidatesFeature
             -> VersionsFeature
@@ -184,6 +188,7 @@ htmlFeature :: UserFeature
             -> DistroFeature
             -> DocumentationFeature
             -> DocumentationFeature
+            -> TarIndexCacheFeature
             -> ReportsFeature
             -> UserDetailsFeature
             -> HtmlUtilities
@@ -194,7 +199,7 @@ htmlFeature :: UserFeature
 
 htmlFeature user
             core@CoreFeature{queryGetPackageIndex}
-            recent upload
+            packages upload
             candidates versions
             -- [reverse index disabled] ReverseFeature{..}
             tags download
@@ -202,6 +207,7 @@ htmlFeature user
             names
             mirror distros
             docsCore docsCandidates
+            tarIndexCache
             reportsCore
             usersdetails
             utilities@HtmlUtilities{..}
@@ -233,10 +239,11 @@ htmlFeature user
                                       upload
                                       tags
                                       docsCore
+                                      tarIndexCache
                                       reportsCore
                                       download
                                       distros
-                                      recent
+                                      packages
                                       htmlTags
                                       htmlPreferred
                                       cachePackagesPage
@@ -247,7 +254,9 @@ htmlFeature user
     htmlDocUploads = mkHtmlDocUploads utilities core docsCore templates
     htmlDownloads  = mkHtmlDownloads  utilities download
     htmlReports    = mkHtmlReports    utilities core reportsCore templates
-    htmlCandidates = mkHtmlCandidates utilities core versions upload docsCandidates candidates templates
+    htmlCandidates = mkHtmlCandidates utilities core versions upload
+                                      docsCandidates tarIndexCache
+                                      candidates templates
     htmlPreferred  = mkHtmlPreferred  utilities core versions
     htmlTags       = mkHtmlTags       utilities core list tags
     htmlSearch     = mkHtmlSearch     utilities core list names
@@ -420,10 +429,11 @@ mkHtmlCore :: HtmlUtilities
            -> UploadFeature
            -> TagsFeature
            -> DocumentationFeature
+           -> TarIndexCacheFeature
            -> ReportsFeature
            -> DownloadFeature
            -> DistroFeature
-           -> RecentPackagesFeature
+           -> PackageContentsFeature
            -> HtmlTags
            -> HtmlPreferred
            -> AsyncCache Response
@@ -440,11 +450,12 @@ mkHtmlCore HtmlUtilities{..}
                           }
            UploadFeature{guardAuthorisedAsMaintainerOrTrustee}
            TagsFeature{queryTagsForPackage}
-           documentationFeature@DocumentationFeature{documentationResource, queryHasDocumentation}
+           documentationFeature@DocumentationFeature{documentationResource, queryDocumentation}
+           TarIndexCacheFeature{cachedTarIndex}
            reportsFeature
            DownloadFeature{recentPackageDownloads,totalPackageDownloads}
            DistroFeature{queryPackageStatus}
-           RecentPackagesFeature{packageRender}
+           PackageContentsFeature{packageRender}
            HtmlTags{..}
            HtmlPreferred{..}
            cachePackagesPage
@@ -482,7 +493,7 @@ mkHtmlCore HtmlUtilities{..}
             resourceDesc = [(GET, "A handy page for distro package change monitor tools")]
           , resourceGet  = [("html", serveDistroMonitorPage)]
           }
-      , (resourceAt "/package/:package/revisions/") {
+      , (resourceAt "/package/:package/revisions/.:format") {
             resourceGet  = [("html", serveCabalRevisionsPage)]
           }
       ]
@@ -506,8 +517,9 @@ mkHtmlCore HtmlUtilities{..}
         -- get additional information from other features
         prefInfo <- queryGetPreferredInfo pkgname
         let infoUrl = fmap (\_ -> preferredPackageUri versions "" pkgname) $ sumRange prefInfo
-            beforeHtml = [Pages.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl,
-                          Pages.renderDependencies render]
+            beforeHtml = [ Pages.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl
+                         , Pages.renderChangelog render
+                         , Pages.renderDependencies render]
         -- and other package indices
         distributions <- queryPackageStatus pkgname
         -- [reverse index disabled] revCount <- revPackageSummary realpkg
@@ -522,9 +534,11 @@ mkHtmlCore HtmlUtilities{..}
                                      -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
                                      ]
         -- bottom sections, currently only documentation
-        hasDocs  <- queryHasDocumentation realpkg
-        let docURL | hasDocs   = Just $ packageDocsContentUri docs realpkg -- Just $ "/package" <//> display realpkg <//> "docs"
-                   | otherwise = Nothing
+        mdoctarblob <- queryDocumentation realpkg
+        mdocIndex   <- maybe (return Nothing)
+                             (liftM Just . liftIO . cachedTarIndex)
+                             mdoctarblob
+        let docURL = packageDocsContentUri docs realpkg -- "/package" <//> display realpkg <//> "docs"
         -- extra features like tags and downloads
         tags <- queryTagsForPackage pkgname
 
@@ -542,7 +556,7 @@ mkHtmlCore HtmlUtilities{..}
             Pages.packagePage render [tagLinks] [deprHtml]
                               (beforeHtml ++ middleHtml ++ afterHtml
                                 ++ buildStatusHtml)
-                              [] docURL False
+                              [] mdocIndex docURL False
       where
         showDist (dname, info) = toHtml (display dname ++ ":") +++
             anchor ! [href $ distroUrl info] << toHtml (display $ distroVersion info)
@@ -868,6 +882,7 @@ mkHtmlCandidates :: HtmlUtilities
                  -> VersionsFeature
                  -> UploadFeature
                  -> DocumentationFeature
+                 -> TarIndexCacheFeature
                  -> PackageCandidatesFeature
                  -> Templates
                  -> HtmlCandidates
@@ -877,7 +892,8 @@ mkHtmlCandidates HtmlUtilities{..}
                             }
                  VersionsFeature{ queryGetPreferredInfo }
                  UploadFeature{ guardAuthorisedAsMaintainer }
-                 DocumentationFeature{documentationResource, queryHasDocumentation}
+                 DocumentationFeature{documentationResource, queryDocumentation}
+                 TarIndexCacheFeature{cachedTarIndex}
                  PackageCandidatesFeature{..}
                  templates = HtmlCandidates{..}
   where
@@ -991,15 +1007,17 @@ mkHtmlCandidates HtmlUtilities{..}
                          Pages.renderDependencies render] ++ Pages.renderFields render
           maintainHtml = anchor ! [href $ renderResource maintain [display $ packageId cand]] << "maintain"
       -- bottom sections, currently only documentation
-      hasDocs  <- queryHasDocumentation (packageId cand)
-      let docURL | hasDocs   = Just $ packageDocsContentUri docs (packageId cand) -- Just $ "/package" <//> display realpkg <//> "docs"
-                 | otherwise = Nothing
+      mdoctarblob <- queryDocumentation (packageId cand)
+      mdocIndex   <- maybe (return Nothing)
+                           (liftM Just . liftIO . cachedTarIndex)
+                           mdoctarblob
+      let docURL = packageDocsContentUri docs (packageId cand)
       -- also utilize hasIndexedPackage :: Bool
       let warningBox = case renderWarnings candRender of
               [] -> []
               warn -> [thediv ! [theclass "notification"] << [toHtml "Warnings:", unordList warn]]
       return $ toResponse $ Resource.XHtml $
-          Pages.packagePage render [maintainHtml] warningBox sectionHtml [] docURL True
+          Pages.packagePage render [maintainHtml] warningBox sectionHtml [] mdocIndex docURL True
 
     servePublishForm :: DynamicPath -> ServerPartE Response
     servePublishForm dpath = do
