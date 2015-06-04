@@ -58,7 +58,9 @@ rankingFeature votesCache
   = RankingFeature{..}
   where
     rankingFeatureInterface = (emptyHackageFeature "ranking") {
-      featureResources        = [getVoteResource]
+      featureResources        = [getVoteResource
+                                , modifyVoteResource
+                                ]
       , featurePostInit       = performInitProcedure
       , featureState          = []
       , featureCaches         = [
@@ -76,16 +78,27 @@ rankingFeature votesCache
     -- | Resources passed to featureResources in constructor
     getVoteResource = (resourceAt "/packages/vote") {
       resourceDesc = [(GET, "Get the number of votes a package has.")],
-      resourceGet  = [("json", returnOne)]
+      resourceGet  = [("json", getVotesMap)]
     }
 
+
+    modifyVoteResource = (resourceAt "/packages/vote/mod") {
+      resourceDesc = [(PUT, "Get the number of votes a package has.")],
+      resourceGet  = [("json", modifyVotesMap)]
+    }
+
+    modifyVotesMap _ = do
+      theMap <- readMemState votesCache
+      let newMap = adjust (1 +) "a" theMap
+      writeMemState votesCache newMap
+      ok. toResponse $ toJSON $ Map.toList newMap
+
+
     -- | Trivial json response
-    returnOne _ = do
+    getVotesMap _ = do
         theMap <- readMemState votesCache
         let
-          arr = if "c" `Map.member` theMap
-            then [("inMap", "True")]
-            else [("inMap", "False")]
+          arr = Map.toList theMap
 
         ok. toResponse $ toJSON arr
 
@@ -93,7 +106,7 @@ constructInitialMap :: IO (Map String Integer)
 constructInitialMap = return initialTestMap
 
 initialTestMap :: VoteMap
-initialTestMap = Map.fromList [("a", 1), ("b", 2)] :: VoteMap
+initialTestMap = Map.fromList [("a", 10), ("b", 2)] :: VoteMap
 
 -- | Returns the number of votes a single package has.
 queryGetNumberOfVotes :: (voteMap -> PackageName) -> voteMap -> Int
