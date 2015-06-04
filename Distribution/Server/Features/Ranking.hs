@@ -20,6 +20,12 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.Text as Text
 
+import Data.List
+import qualified Data.Text as T
+import Control.Applicative (optional)
+import Data.Maybe (isJust)
+import Distribution.Text as DT
+
 import Control.Monad.Reader
 
 type VoteCount = Integer
@@ -82,14 +88,15 @@ rankingFeature votesCache
     }
 
 
-    modifyVoteResource = (resourceAt "/packages/vote/mod") {
+    modifyVoteResource = (resourceAt "/packages/vote/:key") {
       resourceDesc = [(PUT, "Get the number of votes a package has.")],
       resourceGet  = [("json", modifyVotesMap)]
     }
 
-    modifyVotesMap _ = do
+    modifyVotesMap dpath = do
+      let theKey = maybe mzero return (Data.List.lookup "key" dpath >>= fromReqURI)
       theMap <- readMemState votesCache
-      let newMap = adjust (1 +) "a" theMap
+      let newMap = adjust (1 +) theKey theMap
       writeMemState votesCache newMap
       ok. toResponse $ toJSON $ Map.toList newMap
 
