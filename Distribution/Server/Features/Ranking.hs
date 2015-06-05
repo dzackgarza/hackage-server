@@ -99,15 +99,18 @@ rankingFeature votesCache CoreFeature{..}
 
     modifyVoteResource = (resourceAt "/packages/vote/:key") {
       resourceDesc = [(PUT, "Get the number of votes a package has.")],
-      resourceGet  = [("json", modifyVotesMap)]
+      resourceGet  = [("json", modifyVotesMap')]
     }
 
-    modifyVotesMap dpath = do
-      let theKey = maybe mzero return (L.lookup "key" dpath >>= fromReqURI)
-      theMap <- readMemState votesCache
-      let newMap = adjust (1 +) theKey theMap
-      writeMemState votesCache newMap
-      ok. toResponse $ toJSON $ Map.toList newMap
+    modifyVotesMap' dpath = case fromReqURI =<< L.lookup "key" dpath of
+      Nothing -> mzero
+      Just pName -> do
+        theMap <- readMemState votesCache
+        let newMap = adjust (1 +) pName theMap
+        writeMemState votesCache newMap
+        case pName `Map.member` theMap of
+          True -> ok. toResponse $ toJSON $ Map.toList newMap
+          False -> ok . toResponse $ "Not found: " ++ pName
 
 
     -- | Trivial json response
