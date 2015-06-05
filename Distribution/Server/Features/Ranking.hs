@@ -12,6 +12,7 @@ import Distribution.Server.Features.Core
 
 import Distribution.Package
 import Distribution.Server.Packages.Types
+import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
 
 import qualified Data.HashMap.Strict as HashMap
 import Data.Aeson
@@ -20,7 +21,7 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.Text as Text
 
-import Data.List
+import Data.List as L
 import qualified Data.Text as T
 import Control.Applicative (optional)
 import Data.Maybe (isJust)
@@ -49,18 +50,22 @@ instance IsHackageFeature RankingFeature where
   getFeatureInterface = rankingFeatureInterface -- rankingInterface -- #ToDo: Define rankingInterface.
 
 -- | Called from Features.hs to initialize this feature
-initRankingFeature :: ServerEnv -> IO ( IO RankingFeature)
-initRankingFeature ServerEnv{serverStateDir} = do
+initRankingFeature :: ServerEnv
+                   -> IO ( CoreFeature
+                      -> IO RankingFeature)
+
+initRankingFeature ServerEnv{..} = do
   initialVoteCache <- newMemStateWHNF Map.empty
-  return $ do
-    let feature = rankingFeature initialVoteCache
+  return $ \core@CoreFeature{..} -> do
+    let feature = rankingFeature initialVoteCache core
     return feature
 
 -- | Default constructor for building a feature.
 rankingFeature :: MemState (Map String Integer)
+                -> CoreFeature
                 -> RankingFeature
 
-rankingFeature votesCache
+rankingFeature votesCache CoreFeature{..}
   = RankingFeature{..}
   where
     rankingFeatureInterface = (emptyHackageFeature "ranking") {
@@ -78,7 +83,11 @@ rankingFeature votesCache
       }
 
     performInitProcedure = do
-      items <- constructInitialMap
+      pkgIndex <- queryGetPackageIndex
+      let pkgs = PackageIndex.allPackagesByName pkgIndex
+          list = [display . pkgName . pkgInfoId $ pkg | pkg <- L.map L.head pkgs]
+          tups = L.zip list [0,0..]
+          items = Map.fromList tups
       writeMemState votesCache items
 
     -- | Resources passed to featureResources in constructor
@@ -94,7 +103,7 @@ rankingFeature votesCache
     }
 
     modifyVotesMap dpath = do
-      let theKey = maybe mzero return (Data.List.lookup "key" dpath >>= fromReqURI)
+      let theKey = maybe mzero return (L.lookup "key" dpath >>= fromReqURI)
       theMap <- readMemState votesCache
       let newMap = adjust (1 +) theKey theMap
       writeMemState votesCache newMap
@@ -109,11 +118,6 @@ rankingFeature votesCache
 
         ok. toResponse $ toJSON arr
 
-constructInitialMap :: IO (Map String Integer)
-constructInitialMap = return initialTestMap
-
-initialTestMap :: VoteMap
-initialTestMap = Map.fromList [("a", 10), ("b", 2)] :: VoteMap
 
 -- | Returns the number of votes a single package has.
 queryGetNumberOfVotes :: (voteMap -> PackageName) -> voteMap -> Int
