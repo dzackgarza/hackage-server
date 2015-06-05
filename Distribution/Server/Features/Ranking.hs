@@ -1,5 +1,7 @@
 {-# LANGUAGE RankNTypes, NamedFieldPuns, RecordWildCards #-}
 
+-- | Implements of ranking system for all packages based on
+-- | upvotes supplied by users.
 module Distribution.Server.Features.Ranking (
   RankingFeature(..),
   initRankingFeature
@@ -14,18 +16,18 @@ import Distribution.Package
 import Distribution.Server.Packages.Types
 import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
 
-import qualified Data.HashMap.Strict as HashMap
+import Data.Text as Text
 import Data.Aeson
-import qualified Data.Vector as Vector
 import Data.Map as Map
 import Data.Set as Set
-import Data.Text as Text
+import qualified Data.Vector as Vector
+import qualified Data.HashMap.Strict as HashMap
 
 import Data.List as L
-import qualified Data.Text as T
-import Control.Applicative (optional)
 import Data.Maybe (isJust)
 import Distribution.Text as DT
+import qualified Data.Text as T
+import Control.Applicative (optional)
 
 import Control.Monad.Reader
 
@@ -36,13 +38,7 @@ type VoteMap = Map String Integer
 
 -- | Define the prototype for this feature
 data RankingFeature = RankingFeature {
-  {-votesNum :: Int-}
   rankingFeatureInterface :: HackageFeature
-
-  -- May need to define a custom resource and branch it out, see TagsResource
-
-  -- queryGetPackagesByVotes      :: MonadIO m => m [(PackageName, Int)],
-  -- queryGetSinglePackageVotes   :: MonadIO m => PackageName -> m voteTally
 }
 
 -- | Implement the isHackageFeature 'interface'
@@ -82,43 +78,48 @@ rankingFeature votesCache CoreFeature{..}
         ]
       }
 
+    -- | Called in phase 2 of Feature.hs, since it requires the package
+    -- | list to be populated in the Core feature.
     performInitProcedure = do
+      -- Populate the map with package names
       pkgIndex <- queryGetPackageIndex
       let pkgs = PackageIndex.allPackagesByName pkgIndex
           list = [display . pkgName . pkgInfoId $ pkg | pkg <- L.map L.head pkgs]
-          tups = L.zip list [0,0..]
+          tups = L.zip list [0,0..]     -- Initialize their votes to zero (for now)
           items = Map.fromList tups
       writeMemState votesCache items
 
-    -- | Resources passed to featureResources in constructor
+
+    -- | Resources passed to featureResources in rankingFeatureInterface
+    -- | Get the entire map
     getVoteResource = (resourceAt "/packages/vote") {
-      resourceDesc = [(GET, "Get the number of votes a package has.")],
+      resourceDesc = [(GET, "Get the current state of the map from names to votes")],
       resourceGet  = [("json", getVotesMap)]
     }
 
-
-    modifyVoteResource = (resourceAt "/packages/vote/:key") {
-      resourceDesc = [(PUT, "Get the number of votes a package has.")],
-      resourceGet  = [("json", modifyVotesMap')]
+    -- | Upvote a single package (:packageName must be an exact match)
+    modifyVoteResource = (resourceAt "/packages/vote/:packageName") {
+      resourceDesc = [(PUT, "Add a vote to a package.")],
+      resourceGet  = [("json", upVotePackage)]
     }
 
-    modifyVotesMap' dpath = case fromReqURI =<< L.lookup "key" dpath of
+
+    -- | Implementations of the how the above resources are handled.
+    -- | Increment the vote at /packages/vote/:packageName
+    upVotePackage dpath = case fromReqURI =<< L.lookup "packageName" dpath of
       Nothing -> mzero
       Just pName -> do
         theMap <- readMemState votesCache
         let newMap = adjust (1 +) pName theMap
         writeMemState votesCache newMap
-        case pName `Map.member` theMap of
-          True -> ok. toResponse $ toJSON $ Map.toList newMap
-          False -> ok . toResponse $ "Not found: " ++ pName
+        if pName `Map.member` theMap
+          then ok . toResponse $ toJSON $ Map.toList newMap
+          else ok . toResponse $ "Not found: " ++ pName
 
-
-    -- | Trivial json response
+    -- | Retrive the entire map (from package names to # of votes)
     getVotesMap _ = do
         theMap <- readMemState votesCache
-        let
-          arr = Map.toList theMap
-
+        let  arr = Map.toList theMap
         ok. toResponse $ toJSON arr
 
 

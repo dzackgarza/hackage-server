@@ -290,6 +290,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                            tarIndexCacheFeature
 
     rankingFeature      <- mkRankingFeature
+                           coreFeature
 
     adminLogFeature <- mkAdminLogFeature
                          usersFeature
