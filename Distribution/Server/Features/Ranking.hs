@@ -105,7 +105,7 @@ rankingFeature votesCache CoreFeature{..}
 
 
     -- | Implementations of the how the above resources are handled.
-    -- | Increment the vote at /packages/vote/:packageName
+    -- | Increment the vote at /packages/vote/:packageName (must match name exactly)
     upVotePackage dpath = case fromReqURI =<< L.lookup "packageName" dpath of
       Nothing -> mzero
       Just pName -> do
