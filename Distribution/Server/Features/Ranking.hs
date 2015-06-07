@@ -20,15 +20,14 @@ import Distribution.Package
 import qualified Distribution.Server.Users.Users as Users
 import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
 
-import Data.Text as Text
 import Data.Aeson
-import Data.Map as Map
-import Data.Set as Set
 import qualified Data.Vector as Vector
 import qualified Data.HashMap.Strict as HashMap
 
 import Data.List as L
 import Data.Maybe (isJust)
+import Data.Map as Map
+import Data.Set as Set
 import Distribution.Text as DT
 import qualified Data.Text as T
 import Control.Applicative (optional)
@@ -58,22 +57,22 @@ initRankingFeature :: ServerEnv
 
 initRankingFeature ServerEnv{..} = do
   initialVoteCache      <- newMemStateWHNF Map.empty        -- Tracks number of votes per package
-  initialUserVotesCache <- newMemStateWHNF Map.empty        -- Tracks which packages a user has voted on
+   {-initialUserVotesCache <- newMemStateWHNF Map.empty        -- Tracks which packages a user has voted on-}
   return $ \coref@CoreFeature{..} userf@UserFeature{..} -> do
     let feature = rankingFeature
-                  initialVoteCache initialUserVotesCache
+                  initialVoteCache -- initialUserVotesCache
                   coref userf
     return feature
 
 -- | Default constructor for building a feature.
-rankingFeature :: MemState (Map String Integer)    -- Package -> # of Votes
-                -> MemState (Map UserId [String]) -- UserId -> [packageNames]
-                -> CoreFeature          -- To get package list
-                -> UserFeature          -- To authenticate users
+rankingFeature :: MemState (Map String (Set UserId))         -- Package -> # of Votes
+                {--> MemState (Map UserId [String]) -- UserId -> [packageNames]-}
+                -> CoreFeature               -- To get package list
+                -> UserFeature               -- To authenticate users
                 -> RankingFeature
 
 rankingFeature packageVotesCache
-              userVotesCache
+              {-userVotesCache-}
               CoreFeature{ coreResource=CoreResource{ packageInPath
                                                       , guardValidPackageName
                                                       , lookupPackageName
@@ -87,7 +86,7 @@ rankingFeature packageVotesCache
     rankingFeatureInterface = (emptyHackageFeature "ranking") {
       featureResources        = [getPackageVotesResource
                                 , putUpvoteResource
-                                , getUserVoteMapResource
+                                {-, getUserVoteMapResource-}
                                 ]
       , featurePostInit       = performInitProcedure
       , featureState          = []
@@ -107,24 +106,24 @@ rankingFeature packageVotesCache
       pkgIndex <- queryGetPackageIndex
       let pkgs = PackageIndex.allPackagesByName pkgIndex
           namesList = [display . pkgName . pkgInfoId $ pkg | pkg <- L.map L.head pkgs]
-          namesTups = L.zip namesList [0, 0..]     -- Initialize their votes to zero (for now)
+          namesTups = L.zip namesList (repeat Set.empty) -- For now, assume no packages have been voted on at startup.
           namesItems = Map.fromList namesTups
       writeMemState packageVotesCache namesItems
 
       -- Populate the map of userIDs -> packages they've upvoted
-      userlist <- Users.enumerateActiveUsers <$> queryGetUserDb
-      let users = [ uid | (uid, _) <- userlist ]
-          userTups = L.zip users (repeat [])
-          userItems = Map.fromList userTups
-      writeMemState userVotesCache userItems
+      {-userlist <- Users.enumerateActiveUsers <$> queryGetUserDb-}
+      {-let users = [ uid | (uid, _) <- userlist ]-}
+          {-userTups = L.zip users (repeat [])-}
+          {-userItems = Map.fromList userTups-}
+      {-writeMemState userVotesCache userItems-}
 
     -- | Resources passed to featureResources in rankingFeatureInterface
 
     -- Get the entire map from package names -> # of votes as JSON
-    getPackageVotesResource :: Resource
-    getPackageVotesResource = (resourceAt "/packages/packagevotes") {
+    getAllPackageVotesResource :: Resource
+    getAllPackageVotesResource = (resourceAt "/packages/packagevotes") {
       resourceDesc = [(GET, "Get the current state of the map from packages to votes")],
-      resourceGet  = [("json", getPackageVotes)]
+      resourceGet  = [("json", getAllPackageVotes)]
     }
 
     -- Upvote a single package (package name must be an exact match)
@@ -135,12 +134,17 @@ rankingFeature packageVotesCache
       resourceGet  = [("json", upVotePackage)]
     }
 
-    -- Get the entire map of userIDs -> packages they've upvoted as JSON
-    getUserVoteMapResource :: Resource
-    getUserVoteMapResource = (resourceAt "/packages/uservotes") {
-      resourceDesc = [(PUT, "Get the state of the user->vote map.")],
-      resourceGet  = [("json", getUserVotes)]
+    getPackageVotesResource :: Resource
+    getPackageVotesResource = (resourceAt "/packages/vote/:package") {
+      resourceDesc = [(PUT, "Add a vote to a package.")],
+      resourceGet  = [("json", getPackageVotes)]
     }
+    -- Get the entire map of userIDs -> packages they've upvoted as JSON
+    {-getUserVoteMapResource :: Resource-}
+    --{-getUserVoteMapResource = (resourceAt "/packages/uservotes") {-}
+      {-resourceDesc = [(PUT, "Get the state of the user->vote map.")],-}
+      {-resourceGet  = [("json", getUserVotes)]-}
+    {-}-}
 
     -- | Implementations of the how the above resources are handled.
 
@@ -153,12 +157,16 @@ rankingFeature packageVotesCache
 
       packageVotesMap <- readMemState packageVotesCache
       let pName = extractName pkgname
-          newPVMap = adjust (1 +) pName packageVotesMap
-      writeMemState packageVotesCache newPVMap
+          newPackageVoteSet = adjust (Set.insert userID) pName packageVotesMap
+      writeMemState packageVotesCache newPackageVoteSet
 
-      userVotesMap    <- readMemState userVotesCache
-      let newUVMap = adjust (pName :) userID userVotesMap
-      writeMemState userVotesCache newUVMap
+      {-let pName = extractName pkgname-}
+          {-newPVMap = adjust (1 +) pName packageVotesMap-}
+      {-writeMemState packageVotesCache newPVMap-}
+
+      {-userVotesMap    <- readMemState userVotesCache-}
+      {-let newUVMap = adjust (pName :) userID userVotesMap-}
+      {-writeMemState userVotesCache newUVMap-}
 
       ok . toResponse $
         "Package \"" ++ pName ++ "\" "
@@ -166,8 +174,8 @@ rankingFeature packageVotesCache
 
     -- Retrive the entire map (from package names to # of votes)
     -- (Admin/debug function)
-    getPackageVotes :: DynamicPath -> ServerPartE Response
-    getPackageVotes _ = do
+    getAllPackageVotes :: DynamicPath -> ServerPartE Response
+    getAllPackageVotes _ = do
         guardAuthorised [InGroup adminGroup]
         packageVotesMap <- readMemState packageVotesCache
         let  arr = Map.toList packageVotesMap
@@ -175,12 +183,12 @@ rankingFeature packageVotesCache
 
     -- Get the map of user names to packages they've upvoted.
     -- (Admin/debug function)
-    getUserVotes :: DynamicPath -> ServerPartE Response
-    getUserVotes _ = do
-        guardAuthorised [InGroup adminGroup]
-        userVotesMap    <- readMemState userVotesCache
-        let  arr = Map.toList userVotesMap
-        ok. toResponse $ toJSON arr
+    {-getUserVotes :: DynamicPath -> ServerPartE Response-}
+    {-getUserVotes _ = do-}
+        {-guardAuthorised [InGroup adminGroup]-}
+        {-userVotesMap    <- readMemState userVotesCache-}
+        {-let  arr = Map.toList userVotesMap-}
+        {-ok. toResponse $ toJSON arr-}
 
 extractName :: PackageName -> String
 extractName (PackageName { unPackageName = n }) = n
