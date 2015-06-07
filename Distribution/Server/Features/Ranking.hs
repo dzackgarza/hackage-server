@@ -84,8 +84,8 @@ rankingFeature packageVotesCache
   = RankingFeature{..}
   where
     rankingFeatureInterface = (emptyHackageFeature "ranking") {
-      featureResources        = [getPackageVotesResource
-                                , putUpvoteResource
+      featureResources        = [getAllPackageVotesResource
+                                , votingResource
                                 {-, getUserVoteMapResource-}
                                 ]
       , featurePostInit       = performInitProcedure
@@ -127,18 +127,17 @@ rankingFeature packageVotesCache
     }
 
     -- Upvote a single package (package name must be an exact match)
+    -- or get the number of votes a package has.
     -- (Note: path must contain ':package' to use packageInPath)
-    putUpvoteResource :: Resource
-    putUpvoteResource = (resourceAt "/packages/vote/:package") {
-      resourceDesc = [(PUT, "Add a vote to a package.")],
-      resourceGet  = [("json", upVotePackage)]
+    votingResource :: Resource
+    votingResource  = (resourceAt "/packages/upvote/:package") {
+      resourceDesc  = [ (GET, "get a package's number of votes")
+                      , (PUT, "upvote a package")
+                      ],
+      resourceGet   = [("json", getPackageVotes)],
+      resourcePut   = [("", upVotePackage)]
     }
 
-    getPackageVotesResource :: Resource
-    getPackageVotesResource = (resourceAt "/packages/vote/:package") {
-      resourceDesc = [(PUT, "Add a vote to a package.")],
-      resourceGet  = [("json", getPackageVotes)]
-    }
     -- Get the entire map of userIDs -> packages they've upvoted as JSON
     {-getUserVoteMapResource :: Resource-}
     --{-getUserVoteMapResource = (resourceAt "/packages/uservotes") {-}
@@ -181,6 +180,23 @@ rankingFeature packageVotesCache
         let  arr = Map.toList packageVotesMap
         ok. toResponse $ toJSON arr
 
+    -- Get a single package's number of votes
+    getPackageVotes :: DynamicPath -> ServerPartE Response
+    getPackageVotes dpath = do
+      pkgname <- packageInPath dpath
+      guardValidPackageName pkgname
+
+      packageVotesMap <- readMemState packageVotesCache
+      let pName = extractName pkgname
+          uids = packageVotesMap Map.! pName
+          {-arr = Set.toList uids-}
+          numVotes = Set.size uids
+          arr = objectL
+                  [ ("packageName", string $ pName)
+                  , ("numVotes",    toJSON numVotes)
+                  ]
+
+      ok . toResponse $ toJSON arr
     -- Get the map of user names to packages they've upvoted.
     -- (Admin/debug function)
     {-getUserVotes :: DynamicPath -> ServerPartE Response-}
@@ -190,5 +206,14 @@ rankingFeature packageVotesCache
         {-let  arr = Map.toList userVotesMap-}
         {-ok. toResponse $ toJSON arr-}
 
+-- Use to construct a list of tuples that can be toJSON'd
+objectL :: [(String, Value)] -> Value
+objectL = Object . HashMap.fromList . L.map (first T.pack)
+
+-- Use inside an objectL to transform strings into json values
+string :: String -> Value
+string = String . T.pack
+
+-- Unbox the string representation of a package's name
 extractName :: PackageName -> String
 extractName (PackageName { unPackageName = n }) = n
