@@ -291,6 +291,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
 
     rankingFeature      <- mkRankingFeature
                            coreFeature
+                           usersFeature
 
     adminLogFeature <- mkAdminLogFeature
                          usersFeature
