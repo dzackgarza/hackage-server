@@ -43,6 +43,11 @@ data-files:
   static/*.ico
   static/*.png
 
+  static/fonts/*.eot
+  static/fonts/*.svg
+  static/fonts/*.ttf
+  static/fonts/*.woff
+
 source-repository head
   type: git
   location: https://github.com/dzackgarza/hackage-server

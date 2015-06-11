@@ -301,9 +301,12 @@ renderDownloads totalDown recentDown {- versionDown version -} =
     ("Downloads", toHtml $ {- show versionDown ++ " for " ++ display version ++
                       " and " ++ -} show totalDown ++ " total (" ++
                       show recentDown ++ " in last 30 days)")
+
 renderStars :: Int -> (String, Html)
 renderStars numStars =
-  ("Stars: ", toHtml $ show numStars)
+  ("Stars:",
+    anchor ! [theclass "icon-star-empty"] << show numStars
+  )
 
 renderFields :: PackageRender -> [(String, Html)]
 renderFields render = [
