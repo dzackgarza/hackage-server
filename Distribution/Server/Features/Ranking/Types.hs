@@ -43,8 +43,13 @@ removeStar pkgname uid vmap = Votes $
   adjust (Set.delete uid) (unPackageName pkgname) (extractMap vmap)
 
 getUsersWhoStarred :: PackageName -> Votes -> Set UserId
-getUsersWhoStarred pkgname vmap =
-  (extractMap vmap) Map.! (unPackageName pkgname)
+getUsersWhoStarred p v =
+  case pkgname `Map.member` vmap of
+    True -> vmap Map.! pkgname
+    False -> Set.empty
+  where
+    vmap    = extractMap v
+    pkgname = unPackageName p
 
 getNumberOfStarsFor :: PackageName -> Votes -> Int
 getNumberOfStarsFor pkgname vmap =
