@@ -28,8 +28,15 @@ initialVotes :: Votes
 initialVotes = Votes Map.empty
 
 addStar :: PackageName -> UserId -> Votes -> Votes
-addStar pkgname uid vmap = Votes $
-  adjust (Set.insert uid) (unPackageName pkgname) (extractMap vmap)
+addStar pkgname uid v = Votes $
+  adjust (Set.insert uid) pname somemap
+    where
+      pname = unPackageName pkgname
+      vmap  = extractMap v
+      somemap = if pname `Map.member` vmap
+        then vmap
+        else Map.insert pname Set.empty vmap
+
 
 removeStar :: PackageName -> UserId -> Votes -> Votes
 removeStar pkgname uid vmap = Votes $
