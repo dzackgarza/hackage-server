@@ -225,6 +225,10 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                          coreFeature
                          usersFeature
 
+    rankingFeature      <- mkRankingFeature
+                           coreFeature
+                           usersFeature
+
     tagsFeature     <- mkTagsFeature
                          coreFeature
                          uploadFeature
@@ -263,6 +267,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                          -- [reverse index disabled] reverseFeature
                          tagsFeature
                          downloadFeature
+                         rankingFeature
                          listFeature
                          searchFeature
                          mirrorFeature
@@ -288,10 +293,6 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                            coreFeature
                            documentationCoreFeature
                            tarIndexCacheFeature
-
-    rankingFeature      <- mkRankingFeature
-                           coreFeature
-                           usersFeature
 
     adminLogFeature <- mkAdminLogFeature
                          usersFeature

@@ -52,7 +52,8 @@ import Control.Monad.Reader.Class (ask, asks)
 
 -- | Define the prototype for this feature
 data RankingFeature = RankingFeature {
-  rankingFeatureInterface :: HackageFeature
+    rankingFeatureInterface :: HackageFeature
+  , packageNumberOfStars    :: MonadIO m => PackageName -> m Int
 }
 
 -- | Implement the isHackageFeature 'interface'
@@ -124,6 +125,10 @@ rankingFeature  votesCache
         ]
       }
 
+    packageNumberOfStars :: MonadIO m => PackageName -> m Int
+    packageNumberOfStars pkgname =  do
+      dbVotesMap <- queryState votesState RState.DbGetVotes
+      return $ getNumberOfStarsFor pkgname dbVotesMap
 
     -- | Called in phase 2 of Feature.hs, since it requires the package
     -- | list to be populated in the Core feature.

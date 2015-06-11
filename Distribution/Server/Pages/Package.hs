@@ -6,7 +6,8 @@ module Distribution.Server.Pages.Package (
     renderVersion,
     renderFields,
     renderDownloads,
-    renderChangelog
+    renderChangelog,
+    renderStars
   ) where
 
 import Distribution.Server.Features.PreferredVersions
@@ -300,6 +301,9 @@ renderDownloads totalDown recentDown {- versionDown version -} =
     ("Downloads", toHtml $ {- show versionDown ++ " for " ++ display version ++
                       " and " ++ -} show totalDown ++ " total (" ++
                       show recentDown ++ " in last 30 days)")
+renderStars :: Int -> (String, Html)
+renderStars numStars =
+  ("Stars: ", toHtml $ show numStars)
 
 renderFields :: PackageRender -> [(String, Html)]
 renderFields render = [
@@ -342,7 +346,7 @@ renderFields render = [
         Nothing -> strong ! [theclass "warning"] << toHtml "none"
         Just n  -> toHtml n
     sourceRepositoryField sr = sourceRepositoryToHtml sr
-    
+
     rendLicense = case rendLicenseFiles render of
       []            -> toHtml (rendLicenseName render)
       [licenseFile] -> anchor ! [ href (rendPkgUri render </> "src" </> licenseFile) ]
