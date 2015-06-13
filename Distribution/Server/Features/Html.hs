@@ -16,6 +16,7 @@ import Distribution.Server.Features.PackageCandidates
 import Distribution.Server.Features.Users
 import Distribution.Server.Features.DownloadCount
 import Distribution.Server.Features.Ranking
+import qualified Distribution.Server.Features.Ranking.Render as Ranking
 import Distribution.Server.Features.Search
 import Distribution.Server.Features.Search as Search
 import Distribution.Server.Features.PreferredVersions
@@ -537,13 +538,22 @@ mkHtmlCore HtmlUtilities{..}
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
         numStars <- packageNumberOfStars pkgname
+        uid <- guardAuthenticated
         let distHtml = case distributions of
                 [] -> []
                 _  -> [("Distributions", concatHtml . intersperse (toHtml ", ") $ map showDist distributions)]
-            afterHtml  = distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                                     , Pages.renderStars numStars
+            afterHtml  = case uid of
+              userid ->
+                distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
+                            , Ranking.renderStarsLoggedIn numStars pkgname userid
                                      -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
-                                     ]
+                            ]
+              _ ->
+                distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
+                            , Ranking.renderStarsAnon numStars pkgname
+                                     -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
+                            ]
+
         -- bottom sections, currently only documentation
         mdoctarblob <- queryDocumentation realpkg
         mdocIndex   <- maybe (return Nothing)

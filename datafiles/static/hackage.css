@@ -683,3 +683,14 @@ ul.directory-list {
 .icon-star-full:before {
 	content: "\e9d9";
 }
+
+.text-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgb(196,69,29);
+}
+
+.text-button:hover {
+  text-decoration: underline;
+}

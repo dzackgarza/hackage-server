@@ -372,6 +372,14 @@ userFeature  usersState adminsState
         users   <- queryGetUserDb
         guardAuthenticatedWithErrHook users
 
+    myGuardAuthenticated :: ServerPartE UserId
+    myGuardAuthenticated = do
+      users <- queryGetUserDb
+      authres <- Auth.checkAuthenticated Auth.hackageRealm users
+      return $ case authres of
+        Left autherr -> UserId 0
+        Right (uid, _) -> uid
+
     -- As above but using the given userdb snapshot
     guardAuthenticatedWithErrHook :: Users.Users -> ServerPartE UserId
     guardAuthenticatedWithErrHook users = do

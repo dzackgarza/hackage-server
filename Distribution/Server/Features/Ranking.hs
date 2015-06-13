@@ -32,6 +32,7 @@ import qualified Distribution.Server.Features.Ranking.State as RState
 import Distribution.Package
 import qualified Distribution.Server.Users.Users as Users
 import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
+import qualified Distribution.Server.Framework.Auth as Auth
 
 import Data.Aeson
 import qualified Data.Vector as Vector
@@ -49,6 +50,7 @@ import Control.Monad.Reader
 import Control.Arrow (first)
 import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Reader.Class (ask, asks)
+
 
 -- | Define the prototype for this feature
 data RankingFeature = RankingFeature {
@@ -90,6 +92,23 @@ votesStateComponent stateDir = do
     {-, backupState  = \_ -> dumpBackup-}
     {-, restoreState = restoreBackup-}
    }
+
+{-data MyError = NotLoggedInError | OtherError-}
+  {-deriving Show-}
+
+{-func :: ServerPartE UserId-}
+{-func = do-}
+  {-users <- queryGetUserDb-}
+  {-uid   <- myguardAuthenticated users-}
+  {-return (UserId 0)-}
+
+{-myguardAuthenticated :: ServerMonad m => Users.Users -> m (Either MyError UserId)-}
+{-myguardAuthenticated users = do-}
+  {-(uid,_) <- Auth.checkAuthenticated Auth.hackageRealm users-}
+  {-authres <- Auth.checkAuthenticated Auth.hackageRealm users-}
+  {-return $ case authres of-}
+    {-Left autherr  -> Left NotLoggedInError-}
+    {-Right (uid, _) ->  Right uid-}
 
 -- | Default constructor for building a feature.
 rankingFeature ::  MemState Votes              -- PackageName -> Set UserId
@@ -167,7 +186,7 @@ rankingFeature  votesCache
     -- Get the entire map from package names -> # of votes as a JSON object.
     getAllPackageVotesResource :: Resource
     getAllPackageVotesResource =
-      (resourceAt "/packages/stars") {
+      (resourceAt "/package/stars") {
         resourceDesc  = [(GET, "Returns the entire database of package votes.")]
       , resourceGet   = [("json", getAllPackageVotes)]
     }
@@ -177,12 +196,12 @@ rankingFeature  votesCache
     -- (Dev Note: path must contain ':package' exactly to use packageInPath)
     votingResource :: Resource
     votingResource  =
-      (resourceAt "/packages/star/:package") {
+      (resourceAt "/package/star/:package") {
         resourceDesc  = [ (GET, "Returns the number of stars a package has.")
-                        , (PUT, "Adds a star to this package.")
+                        , (POST, "Adds a star to this package.")
                         ]
-      , resourceGet = [("json", getPackageVotes)]
-      , resourcePut = [("", upVotePackage)]
+      , resourceGet   = [("json", getPackageVotes)]
+      , resourcePost  = [("", upVotePackage)]
     }
 
     -- Get the entire map of userIDs -> packages they've upvoted as JSON

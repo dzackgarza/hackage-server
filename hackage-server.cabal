@@ -222,6 +222,7 @@ executable hackage-server
 
       Distribution.Server.Features.Ranking
       Distribution.Server.Features.Ranking.State
+      Distribution.Server.Features.Ranking.Render
 
       Distribution.Server.Features.RecentPackages
       Distribution.Server.Features.PreferredVersions

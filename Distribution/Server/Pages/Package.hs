@@ -6,8 +6,7 @@ module Distribution.Server.Pages.Package (
     renderVersion,
     renderFields,
     renderDownloads,
-    renderChangelog,
-    renderStars
+    renderChangelog
   ) where
 
 import Distribution.Server.Features.PreferredVersions
@@ -302,11 +301,9 @@ renderDownloads totalDown recentDown {- versionDown version -} =
                       " and " ++ -} show totalDown ++ " total (" ++
                       show recentDown ++ " in last 30 days)")
 
-renderStars :: Int -> (String, Html)
-renderStars numStars =
-  ("Stars:",
-    anchor ! [theclass "icon-star-empty"] << show numStars
-  )
+
+externalJsUrl :: URL
+externalJsUrl = "/static/functions.js"
 
 renderFields :: PackageRender -> [(String, Html)]
 renderFields render = [
