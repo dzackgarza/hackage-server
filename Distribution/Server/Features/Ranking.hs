@@ -230,7 +230,8 @@ rankingFeature  votesCache
         UserId 0 ->
           ok . toResponse $
             "Error: UserID not found, not authenticated."
-        uid ->
+        uid -> do
+          guardAuthorised [AnyKnownUser]
           ok . toResponse $
             "Package \"" ++ unPackageName pkgname ++ "\" "
             ++ "upvoted successfully by: " ++ (show uid)
