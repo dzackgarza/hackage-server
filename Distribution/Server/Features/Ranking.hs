@@ -216,7 +216,8 @@ rankingFeature  votesCache
     -- Add a star to at :packageName (must match name exactly)
     upVotePackage :: DynamicPath -> ServerPartE Response
     upVotePackage dpath = do
-      userID          <- guardAuthorised [AnyKnownUser]
+      {-userID          <- guardAuthorised [AnyKnownUser]-}
+      userID <- myGuardAuthenticated
       pkgname         <- packageInPath dpath
       guardValidPackageName pkgname
 
@@ -225,9 +226,14 @@ rankingFeature  votesCache
       {-writeMemState votesCache newVoteMap-}
 
       updateState votesState $ RState.DbAddStar pkgname userID
-      ok . toResponse $
-        "Package \"" ++ unPackageName pkgname ++ "\" "
-        ++ "upvoted successfully by " ++ (show userID)
+      case userID of
+        UserId 0 ->
+          ok . toResponse $
+            "Error: UserID not found, not authenticated."
+        uid ->
+          ok . toResponse $
+            "Package \"" ++ unPackageName pkgname ++ "\" "
+            ++ "upvoted successfully by: " ++ (show uid)
 
     -- Retrive the entire map (from package names to # of votes)
     -- (Admin/debug function)

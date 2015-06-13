@@ -63,6 +63,7 @@ data UserFeature = UserFeature {
     guardAuthenticated :: ServerPartE UserId,
     -- | A hook to override the default authentication error in particular
     -- circumstances.
+    myGuardAuthenticated :: ServerPartE UserId,
     authFailHook       :: Hook Auth.AuthError (Maybe ErrorResponse),
     -- | Retrieves the entire user base.
     queryGetUserDb    :: forall m. MonadIO m => m Users.Users,

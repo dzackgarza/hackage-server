@@ -538,22 +538,13 @@ mkHtmlCore HtmlUtilities{..}
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
         numStars <- packageNumberOfStars pkgname
-        uid <- guardAuthenticated
         let distHtml = case distributions of
                 [] -> []
                 _  -> [("Distributions", concatHtml . intersperse (toHtml ", ") $ map showDist distributions)]
-            afterHtml  = case uid of
-              userid ->
-                distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                            , Ranking.renderStarsLoggedIn numStars pkgname userid
+            afterHtml  = distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
+                                     , Ranking.renderStarsAnon numStars pkgname
                                      -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
-                            ]
-              _ ->
-                distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                            , Ranking.renderStarsAnon numStars pkgname
-                                     -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
-                            ]
-
+                                     ]
         -- bottom sections, currently only documentation
         mdoctarblob <- queryDocumentation realpkg
         mdocIndex   <- maybe (return Nothing)
