@@ -26,6 +26,7 @@ module Distribution.Server.Framework.Auth (
 
     -- ** Errors
     AuthError(..),
+    LoggedInError(..),
     authErrorResponse,
   ) where
 
@@ -330,6 +331,10 @@ data AuthError = NoAuthError
                | NoSuchUserError       UserName
                | UserStatusError       UserId UserInfo
                | PasswordMismatchError UserId UserInfo
+  deriving Show
+
+data LoggedInError  = NotLoggedInError
+                    | LoggedIn UserId
   deriving Show
 
 authErrorResponse :: MonadIO m => RealmName -> AuthError -> m ErrorResponse

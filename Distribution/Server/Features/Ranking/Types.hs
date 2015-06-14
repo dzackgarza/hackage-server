@@ -8,6 +8,7 @@ module Distribution.Server.Features.Ranking.Types
   , removeStar
   , getUsersWhoStarred
   , getNumberOfStarsFor
+  , askUserStarred
   , enumerate
   ) where
 
@@ -49,6 +50,15 @@ getUsersWhoStarred p v =
     False -> Set.empty
   where
     vmap    = extractMap v
+    pkgname = unPackageName p
+
+askUserStarred :: PackageName -> UserId -> Votes -> Bool
+askUserStarred  p uid v =
+  case pkgname `Map.member` vmap of
+    True -> uid `Set.member` (vmap Map.! pkgname)
+    False -> False
+  where
+    vmap = extractMap v
     pkgname = unPackageName p
 
 getNumberOfStarsFor :: PackageName -> Votes -> Int

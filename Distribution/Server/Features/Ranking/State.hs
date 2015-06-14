@@ -12,6 +12,7 @@ import Distribution.Server.Features.Ranking.Types
   , removeStar
   , getUsersWhoStarred
   , getNumberOfStarsFor
+  , askUserStarred
   , enumerate
   )
 

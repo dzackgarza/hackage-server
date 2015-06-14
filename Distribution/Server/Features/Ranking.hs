@@ -28,6 +28,7 @@ import qualified Distribution.Server.Packages.Types as PT
 import Distribution.Server.Users.Types (UserId(..), UserName(UserName))
 
 import qualified Distribution.Server.Features.Ranking.State as RState
+import qualified Distribution.Server.Features.Ranking.Types as RTypes
 
 import Distribution.Package
 import qualified Distribution.Server.Users.Users as Users
@@ -45,6 +46,7 @@ import Data.Set as Set
 import Distribution.Text as DT
 import qualified Data.Text as T
 import Control.Applicative (optional)
+import Control.Monad.Error
 
 import Control.Monad.Reader
 import Control.Arrow (first)
@@ -56,6 +58,7 @@ import Control.Monad.Reader.Class (ask, asks)
 data RankingFeature = RankingFeature {
     rankingFeatureInterface :: HackageFeature
   , packageNumberOfStars    :: MonadIO m => PackageName -> m Int
+  , didUserStar :: MonadIO m => PackageName -> UserId -> m Bool
 }
 
 -- | Implement the isHackageFeature 'interface'
@@ -131,8 +134,10 @@ rankingFeature  votesCache
   where
     rankingFeatureInterface =
       (emptyHackageFeature "ranking") {
-        featureResources      = [ getAllPackageVotesResource
-                                , votingResource
+        featureResources      = [ getPackageStarMapResource
+                                , packageStarResource
+                                , packageUnStarResource
+                                , packageAllPackageStarsResource
                                 ]
       , featurePostInit       = performInitProcedure
       , featureState          = [abstractAcidStateComponent votesState]
@@ -144,10 +149,6 @@ rankingFeature  votesCache
         ]
       }
 
-    packageNumberOfStars :: MonadIO m => PackageName -> m Int
-    packageNumberOfStars pkgname =  do
-      dbVotesMap <- queryState votesState RState.DbGetVotes
-      return $ getNumberOfStarsFor pkgname dbVotesMap
 
     -- | Called in phase 2 of Feature.hs, since it requires the package
     -- | list to be populated in the Core feature.
@@ -181,29 +182,43 @@ rankingFeature  votesCache
       {-writeMemState userVotesCache userItems-}
 
 
-    -- | Define the endpoints for this feature's resources
+    -- | Define resources for this feature's URIs
 
     -- Get the entire map from package names -> # of votes as a JSON object.
-    getAllPackageVotesResource :: Resource
-    getAllPackageVotesResource =
+    getPackageStarMapResource :: Resource
+    getPackageStarMapResource =
       (resourceAt "/package/stars") {
         resourceDesc  = [(GET, "Returns the entire database of package votes.")]
-      , resourceGet   = [("json", getAllPackageVotes)]
+      , resourceGet   = [("json", getPackageStarMap)]
     }
 
     -- Add a star to a single package (package name must be an exact match)
     -- or get the number of votes a package has.
     -- (Dev Note: path must contain ':package' exactly to use packageInPath)
-    votingResource :: Resource
-    votingResource  =
+    packageStarResource :: Resource
+    packageStarResource  =
       (resourceAt "/package/star/:package") {
         resourceDesc  = [ (GET, "Returns the number of stars a package has.")
                         , (POST, "Adds a star to this package.")
                         ]
-      , resourceGet   = [("json", getPackageVotes)]
-      , resourcePost  = [("", upVotePackage)]
+      , resourceGet   = [("json", getPackageNumStars)]
+      , resourcePost  = [("",     starPackage)]
     }
 
+    -- Remove a user's star from a package.
+    packageUnStarResource :: Resource
+    packageUnStarResource =
+      (resourceAt "/package/unstar/:package") {
+        resourceDesc  = [(POST, "Adds a star to this package.")]
+      , resourcePost  = [("",     unStarPackage)]
+    }
+
+    packageAllPackageStarsResource :: Resource
+    packageAllPackageStarsResource =
+      (resourceAt "/package/allstars/:package") {
+        resourceDesc  = [(GET, "Returns all of the users who have starred a package.")]
+      , resourceGet   = [("",     getAllPackageStars)]
+    }
     -- Get the entire map of userIDs -> packages they've upvoted as JSON
     {-getUserVoteMapResource :: Resource-}
     --{-getUserVoteMapResource = (resourceAt "/packages/uservotes") {-}
@@ -214,10 +229,10 @@ rankingFeature  votesCache
     -- | Implementations of the how the above resources are handled.
 
     -- Add a star to at :packageName (must match name exactly)
-    upVotePackage :: DynamicPath -> ServerPartE Response
-    upVotePackage dpath = do
-      {-userID          <- guardAuthorised [AnyKnownUser]-}
-      userID <- myGuardAuthenticated
+    starPackage :: DynamicPath -> ServerPartE Response
+    starPackage dpath = do
+      userID          <- (guardAuthorised [AnyKnownUser])
+        `catchError` (\_ -> return (UserId (-1)))
       pkgname         <- packageInPath dpath
       guardValidPackageName pkgname
 
@@ -225,21 +240,41 @@ rankingFeature  votesCache
       {-let newVoteMap = addStar pkgname userID packageVotesMap-}
       {-writeMemState votesCache newVoteMap-}
 
-      updateState votesState $ RState.DbAddStar pkgname userID
       case userID of
-        UserId 0 ->
+        UserId (-1) ->
           ok . toResponse $
-            "Error: UserID not found, not authenticated."
+            "Error: You must log in to star a package."
         uid -> do
-          guardAuthorised [AnyKnownUser]
+          updateState votesState $ RState.DbAddStar pkgname uid
+          seeOther
+            ("/package/" ++ unPackageName pkgname)
+            (toResponse "Starred")
+            {-("Package \"" ++ unPackageName pkgname ++ "\" "-}
+            {-++ "upvoted successfully by: " ++ (show uid))-}
+
+    -- Removes a user's star from a package. If the user has not
+    -- not voted for this package, does nothing.
+    unStarPackage :: DynamicPath -> ServerPartE Response
+    unStarPackage dpath = do
+      userID          <- (guardAuthorised [AnyKnownUser])
+        `catchError` (\_ -> return (UserId (-1)))
+      pkgname         <- packageInPath dpath
+      guardValidPackageName pkgname
+
+      case userID of
+        UserId (-1) ->
           ok . toResponse $
-            "Package \"" ++ unPackageName pkgname ++ "\" "
-            ++ "upvoted successfully by: " ++ (show uid)
+            "Error: You must log in to unstar a package."
+        uid -> do
+          updateState votesState $ RState.DbRemoveStar pkgname uid
+          seeOther
+            ("/package/" ++ unPackageName pkgname)
+            (toResponse "Unstarred.")
 
     -- Retrive the entire map (from package names to # of votes)
     -- (Admin/debug function)
-    getAllPackageVotes :: DynamicPath -> ServerPartE Response
-    getAllPackageVotes _ = do
+    getPackageStarMap :: DynamicPath -> ServerPartE Response
+    getPackageStarMap _ = do
       guardAuthorised [InGroup adminGroup]
       {-memoryVotesMap <- readMemState votesCache-}
       dbVotesMap <- queryState votesState RState.DbGetVotes
@@ -247,8 +282,8 @@ rankingFeature  votesCache
 
     -- Get a single package's number of votes. If package name is not
     -- in the map, returns 0 (as it has never been upvoted)
-    getPackageVotes :: DynamicPath -> ServerPartE Response
-    getPackageVotes dpath = do
+    getPackageNumStars :: DynamicPath -> ServerPartE Response
+    getPackageNumStars dpath = do
       pkgname <- packageInPath dpath
       guardValidPackageName pkgname
 
@@ -262,6 +297,16 @@ rankingFeature  votesCache
 
       ok . toResponse $ toJSON arr
 
+    getAllPackageStars :: DynamicPath -> ServerPartE Response
+    getAllPackageStars dpath = do
+      pkgname <- packageInPath dpath
+      guardValidPackageName pkgname
+
+      dbVotesMap <- queryState votesState RState.DbGetVotes
+
+      let arr = Set.toList $ (extractMap dbVotesMap) Map.! (unPackageName pkgname)
+      ok . toResponse $ toJSON arr
+
     -- Get the map of user names to packages they've upvoted.
     -- (Admin/debug function)
     {-getUserVotes :: DynamicPath -> ServerPartE Response-}
@@ -270,6 +315,24 @@ rankingFeature  votesCache
         {-userVotesMap    <- readMemState userVotesCache-}
         {-let  arr = Map.toList userVotesMap-}
         {-ok. toResponse $ toJSON arr-}
+
+    -- | Helper Functions (Used outside of responses, e.g. by other features.)
+
+    -- Returns true if a user has previously starred the
+    -- package in question.
+    didUserStar :: MonadIO m => PackageName -> UserId -> m Bool
+    didUserStar pkgname uid = do
+      dbVotesMap <- queryState votesState RState.DbGetVotes
+      return $ RTypes.askUserStarred pkgname uid dbVotesMap
+
+    -- Returns the number of stars a package has.
+    packageNumberOfStars :: MonadIO m => PackageName -> m Int
+    packageNumberOfStars pkgname =  do
+      dbVotesMap <- queryState votesState RState.DbGetVotes
+      return $ getNumberOfStarsFor pkgname dbVotesMap
+
+
+-- | Helper functions for constructing JSON responses.
 
 -- Use to construct a list of tuples that can be toJSON'd
 objectL :: [(String, Value)] -> Value

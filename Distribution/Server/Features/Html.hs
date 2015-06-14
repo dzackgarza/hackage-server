@@ -76,6 +76,7 @@ import Text.XHtml.Strict
 import qualified Text.XHtml.Strict as XHtml
 import Text.XHtml.Table (simpleTable)
 import Network.URI (escapeURIString, isUnreserved)
+import Control.Monad.Error
 
 
 -- TODO: move more of the below to Distribution.Server.Pages.*, it's getting
@@ -450,7 +451,7 @@ mkHtmlCore :: HtmlUtilities
            -> Templates
            -> HtmlCore
 mkHtmlCore HtmlUtilities{..}
-           UserFeature{queryGetUserDb}
+           UserFeature{..}
            CoreFeature{coreResource}
            VersionsFeature{ versionsResource
                           , queryGetDeprecatedFor
@@ -463,7 +464,7 @@ mkHtmlCore HtmlUtilities{..}
            TarIndexCacheFeature{cachedTarIndex}
            reportsFeature
            DownloadFeature{recentPackageDownloads,totalPackageDownloads}
-           RankingFeature{packageNumberOfStars}
+           RankingFeature{..}
            DistroFeature{queryPackageStatus}
            PackageContentsFeature{packageRender}
            HtmlTags{..}
@@ -538,11 +539,23 @@ mkHtmlCore HtmlUtilities{..}
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
         numStars <- packageNumberOfStars pkgname
+
+        uid <- guardAuthorised [AnyKnownUser]
+          `catchError` (\_ -> return (UserId (-1)))
+        alreadyVoted <- didUserStar pkgname uid
+
+        let packageStarsHtml = case uid of
+                UserId (-1) ->
+                  Ranking.renderStarsAnon numStars pkgname
+                validuid    ->
+                  Ranking.renderStarsLoggedIn numStars pkgname validuid alreadyVoted
+
+
         let distHtml = case distributions of
                 [] -> []
                 _  -> [("Distributions", concatHtml . intersperse (toHtml ", ") $ map showDist distributions)]
             afterHtml  = distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                                     , Ranking.renderStarsAnon numStars pkgname
+                                     , packageStarsHtml
                                      -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
                                      ]
         -- bottom sections, currently only documentation

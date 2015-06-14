@@ -379,6 +379,7 @@ userFeature  usersState adminsState
       authres <- Auth.checkAuthenticated Auth.hackageRealm users
       return $ case authres of
         Left autherr -> UserId 0
+      {-Left  autherr -> throwError =<< authErrorResponse realm autherr-}
         Right (uid, _) -> uid
 
     -- As above but using the given userdb snapshot
