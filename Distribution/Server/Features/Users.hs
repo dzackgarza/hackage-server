@@ -35,6 +35,7 @@ import qualified Data.Text as T
 
 import Distribution.Text (display, simpleParse)
 
+import Control.Monad.Error
 
 -- | A feature to allow manipulation of the database of users.
 --
@@ -63,7 +64,7 @@ data UserFeature = UserFeature {
     guardAuthenticated :: ServerPartE UserId,
     -- | A hook to override the default authentication error in particular
     -- circumstances.
-    myGuardAuthenticated :: ServerPartE UserId,
+    tryAuthenticated :: ServerPartE (Maybe UserId),
     authFailHook       :: Hook Auth.AuthError (Maybe ErrorResponse),
     -- | Retrieves the entire user base.
     queryGetUserDb    :: forall m. MonadIO m => m Users.Users,
@@ -373,14 +374,15 @@ userFeature  usersState adminsState
         users   <- queryGetUserDb
         guardAuthenticatedWithErrHook users
 
-    myGuardAuthenticated :: ServerPartE UserId
-    myGuardAuthenticated = do
+
+    tryAuthenticated :: ServerPartE (Maybe UserId)
+    tryAuthenticated = do
       users <- queryGetUserDb
       authres <- Auth.checkAuthenticated Auth.hackageRealm users
       return $ case authres of
-        Left autherr -> UserId 0
+        Left autherr -> Nothing
       {-Left  autherr -> throwError =<< authErrorResponse realm autherr-}
-        Right (uid, _) -> uid
+        Right (uid, _) -> Just uid
 
     -- As above but using the given userdb snapshot
     guardAuthenticatedWithErrHook :: Users.Users -> ServerPartE UserId
@@ -532,6 +534,7 @@ userFeature  usersState adminsState
           case muid of
             Left Users.ErrUserNameClash -> errForbidden "Error registering user" [MText "A user account with that user name already exists."]
             Right _                     -> return uname
+
 
     -- Arguments: the auth'd user id, the user path id (derived from the :username)
     canChangePassword :: MonadIO m => UserId -> UserId -> m Bool

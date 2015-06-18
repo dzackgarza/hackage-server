@@ -538,24 +538,14 @@ mkHtmlCore HtmlUtilities{..}
         -- (totalDown, versionDown) <- perVersionDownloads pkg
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
-        numStars <- packageNumberOfStars pkgname
 
-        uid <- guardAuthorised [AnyKnownUser]
-          `catchError` (\_ -> return (UserId (-1)))
-        alreadyVoted <- didUserStar pkgname uid
-
-        let packageStarsHtml = case uid of
-                UserId (-1) ->
-                  Ranking.renderStarsAnon numStars pkgname
-                validuid    ->
-                  Ranking.renderStarsLoggedIn numStars pkgname validuid alreadyVoted
-
+        pkgStarsHtml <- masterRenderStars pkgname
 
         let distHtml = case distributions of
                 [] -> []
                 _  -> [("Distributions", concatHtml . intersperse (toHtml ", ") $ map showDist distributions)]
             afterHtml  = distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                                     , packageStarsHtml
+                                    , pkgStarsHtml
                                      -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
                                      ]
         -- bottom sections, currently only documentation

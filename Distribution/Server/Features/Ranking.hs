@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE RankNTypes, NamedFieldPuns, RecordWildCards, LambdaCase #-}
 
 -- | Implements of ranking system for all packages based on
 -- | upvotes/stars supplied by users.
@@ -47,18 +47,22 @@ import Distribution.Text as DT
 import qualified Data.Text as T
 import Control.Applicative (optional)
 import Control.Monad.Error
+import qualified Text.XHtml.Strict as X
 
 import Control.Monad.Reader
 import Control.Arrow (first)
 import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Reader.Class (ask, asks)
 
+import Distribution.Server.Framework.Error (ServerPartE)
 
 -- | Define the prototype for this feature
 data RankingFeature = RankingFeature {
     rankingFeatureInterface :: HackageFeature
   , packageNumberOfStars    :: MonadIO m => PackageName -> m Int
   , didUserStar :: MonadIO m => PackageName -> UserId -> m Bool
+  , masterRenderStars :: PackageName -> ServerPartE (String, X.Html)
+
 }
 
 -- | Implement the isHackageFeature 'interface'
@@ -231,45 +235,41 @@ rankingFeature  votesCache
     -- Add a star to at :packageName (must match name exactly)
     starPackage :: DynamicPath -> ServerPartE Response
     starPackage dpath = do
-      userID          <- (guardAuthorised [AnyKnownUser])
-        `catchError` (\_ -> return (UserId (-1)))
-      pkgname         <- packageInPath dpath
+      pkgname <- packageInPath dpath
       guardValidPackageName pkgname
 
       {-packageVotesMap <- readMemState votesCache-}
       {-let newVoteMap = addStar pkgname userID packageVotesMap-}
       {-writeMemState votesCache newVoteMap-}
 
-      case userID of
-        UserId (-1) ->
-          ok . toResponse $
-            "Error: You must log in to star a package."
-        uid -> do
+      tryAuthenticated >>= \case
+        Nothing -> ok . toResponse $
+              "Error: You must log in to star a package."
+        Just uid -> do
           updateState votesState $ RState.DbAddStar pkgname uid
-          seeOther
-            ("/package/" ++ unPackageName pkgname)
-            (toResponse "Starred")
-            {-("Package \"" ++ unPackageName pkgname ++ "\" "-}
-            {-++ "upvoted successfully by: " ++ (show uid))-}
+          seeOther previousPage (toResponse $ responseMsg)
+          where
+            previousPage = "/package/" ++ unPackageName pkgname
+            responseMsg = "Package \"" ++ unPackageName pkgname ++ "\" "
+              ++ "starred successfully by: " ++ (show uid)
 
     -- Removes a user's star from a package. If the user has not
     -- not voted for this package, does nothing.
     unStarPackage :: DynamicPath -> ServerPartE Response
     unStarPackage dpath = do
-      userID          <- (guardAuthorised [AnyKnownUser])
-        `catchError` (\_ -> return (UserId (-1)))
-      pkgname         <- packageInPath dpath
+      pkgname <- packageInPath dpath
       guardValidPackageName pkgname
 
-      case userID of
-        UserId (-1) ->
-          ok . toResponse $
-            "Error: You must log in to unstar a package."
-        uid -> do
-          updateState votesState $ RState.DbRemoveStar pkgname uid
-          seeOther
-            ("/package/" ++ unPackageName pkgname)
-            (toResponse "Unstarred.")
+      tryAuthenticated >>= \case
+        Nothing -> ok . toResponse $
+              "Error: You must log in to unstar a package."
+        Just uid -> do
+          updateState votesState $ RState.DbRemoveStar pkgname (uid)
+          seeOther previousPage (toResponse $ responseMsg)
+          where
+            previousPage = "/package/" ++ unPackageName pkgname
+            responseMsg = "Package \"" ++ unPackageName pkgname ++ "\" "
+              ++ "unstarred successfully by: " ++ (show uid)
 
     -- Retrive the entire map (from package names to # of votes)
     -- (Admin/debug function)
@@ -331,6 +331,19 @@ rankingFeature  votesCache
       dbVotesMap <- queryState votesState RState.DbGetVotes
       return $ getNumberOfStarsFor pkgname dbVotesMap
 
+    masterRenderStars :: PackageName -> ServerPartE (String, X.Html)
+    masterRenderStars pkgname = do
+      numStars <- packageNumberOfStars pkgname
+      userid <- tryAuthenticated
+      {-return $ ( "Stars:", X.toHtml $ show numStars )-}
+      case userid of
+        Just uid -> do
+          foo <- didUserStar pkgname uid
+          return $ renderStarsLoggedIn numStars pkgname foo
+        Nothing ->
+          return $ renderStarsAnon numStars pkgname
+
+
 
 -- | Helper functions for constructing JSON responses.
 
@@ -341,3 +354,27 @@ objectL = Object . HashMap.fromList . L.map (first T.pack)
 -- Use inside an objectL to transform strings into json values
 string :: String -> Value
 string = String . T.pack
+
+renderStarsAnon :: Int -> PackageName -> (String, X.Html)
+renderStarsAnon numStars _ =
+  ( "Stars:", X.toHtml $ show numStars )
+
+renderStarsLoggedIn :: Int -> PackageName -> Bool -> (String, X.Html)
+renderStarsLoggedIn numStars pkgname voted =
+  ("Stars:",
+    show numStars
+    X.+++ if voted then
+      X.form  X.! [ X.action $    "unstar/" ++ unPackageName pkgname
+              , X.method      "POST" ]
+      X.<<
+      X.input X.! [ X.thetype     "submit"
+              , X.value       "Remove vote for this package"
+              , X.theclass    "text-button" ]
+    else
+      X.form  X.! [ X.action $    "star/" ++ unPackageName pkgname
+              , X.method      "POST" ]
+      X.<<
+      X.input X.! [ X.thetype     "submit"
+              , X.value       "Vote for this package"
+              , X.theclass    "text-button" ]
+  )
