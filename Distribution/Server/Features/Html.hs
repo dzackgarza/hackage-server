@@ -16,7 +16,6 @@ import Distribution.Server.Features.PackageCandidates
 import Distribution.Server.Features.Users
 import Distribution.Server.Features.DownloadCount
 import Distribution.Server.Features.Ranking
-import qualified Distribution.Server.Features.Ranking.Render as Ranking
 import Distribution.Server.Features.Search
 import Distribution.Server.Features.Search as Search
 import Distribution.Server.Features.PreferredVersions
@@ -76,7 +75,6 @@ import Text.XHtml.Strict
 import qualified Text.XHtml.Strict as XHtml
 import Text.XHtml.Table (simpleTable)
 import Network.URI (escapeURIString, isUnreserved)
-import Control.Monad.Error
 
 
 -- TODO: move more of the below to Distribution.Server.Pages.*, it's getting
@@ -539,7 +537,7 @@ mkHtmlCore HtmlUtilities{..}
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
 
-        pkgStarsHtml <- masterRenderStars pkgname
+        pkgStarsHtml <- renderStarsHtml pkgname
 
         let distHtml = case distributions of
                 [] -> []

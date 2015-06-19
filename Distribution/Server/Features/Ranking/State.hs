@@ -5,9 +5,9 @@ module Distribution.Server.Features.Ranking.State where
 import Distribution.Package (PackageName)
 
 import Distribution.Server.Features.Ranking.Types
-  ( Votes(..)
-  , VoteMap
-  , initialVotes
+  ( Stars(..)
+  , StarMap
+  , initialStars
   , addStar
   , removeStar
   , getUsersWhoStarred
@@ -29,32 +29,32 @@ import Control.Monad (liftM)
 import qualified Control.Monad.State as State
 import Control.Monad.Reader.Class (ask, asks)
 
-deriveSafeCopy 0 'base ''Votes
+deriveSafeCopy 0 'base ''Stars
 
-instance MemSize Votes where
-    memSize (Votes a) = memSize1 a
+instance MemSize Stars where
+    memSize (Stars a) = memSize1 a
 
-dbAddStar :: PackageName -> UserId -> Update Votes ()
+dbAddStar :: PackageName -> UserId -> Update Stars ()
 dbAddStar pkgname uid = do
   state <- State.get
   State.put $ addStar pkgname uid state
 
-dbRemoveStar :: PackageName -> UserId -> Update Votes ()
+dbRemoveStar :: PackageName -> UserId -> Update Stars ()
 dbRemoveStar pkgName uid = do
   state <- State.get
   State.put $ removeStar pkgName uid state
 
-dbGetVotes :: Query Votes Votes
-dbGetVotes = ask
+dbGetStars :: Query Stars Stars
+dbGetStars = ask
 
 -- Replace the entire map
-dbReplaceVotes :: Votes -> Update Votes ()
-dbReplaceVotes = State.put
+dbReplaceStars :: Stars -> Update Stars ()
+dbReplaceStars = State.put
 
 makeAcidic
-  ''Votes
+  ''Stars
   [ 'dbAddStar
   , 'dbRemoveStar
-  , 'dbGetVotes
-  , 'dbReplaceVotes
+  , 'dbGetStars
+  , 'dbReplaceStars
   ]

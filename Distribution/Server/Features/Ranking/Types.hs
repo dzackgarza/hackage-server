@@ -1,9 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module Distribution.Server.Features.Ranking.Types
-  ( Votes(..)
-  , VoteMap
-  , initialVotes
+  ( Stars(..)
+  , StarMap
+  , initialStars
   , addStar
   , removeStar
   , getUsersWhoStarred
@@ -19,17 +19,17 @@ import Data.Typeable
 import Data.Map as Map
 import Data.Set as Set
 
-type VoteMap = Map String (Set UserId)
+type StarMap = Map String (Set UserId)
 
-data Votes = Votes {
-  extractMap:: !VoteMap
+data Stars = Stars {
+  extractMap:: !StarMap
   } deriving (Typeable, Show, Eq)
 
-initialVotes :: Votes
-initialVotes = Votes Map.empty
+initialStars :: Stars
+initialStars = Stars Map.empty
 
-addStar :: PackageName -> UserId -> Votes -> Votes
-addStar pkgname uid v = Votes $
+addStar :: PackageName -> UserId -> Stars -> Stars
+addStar pkgname uid v = Stars $
   adjust (Set.insert uid) pname somemap
     where
       pname = unPackageName pkgname
@@ -39,11 +39,11 @@ addStar pkgname uid v = Votes $
         else Map.insert pname Set.empty vmap
 
 
-removeStar :: PackageName -> UserId -> Votes -> Votes
-removeStar pkgname uid vmap = Votes $
+removeStar :: PackageName -> UserId -> Stars -> Stars
+removeStar pkgname uid vmap = Stars $
   adjust (Set.delete uid) (unPackageName pkgname) (extractMap vmap)
 
-getUsersWhoStarred :: PackageName -> Votes -> Set UserId
+getUsersWhoStarred :: PackageName -> Stars -> Set UserId
 getUsersWhoStarred p v =
   case pkgname `Map.member` vmap of
     True -> vmap Map.! pkgname
@@ -52,7 +52,7 @@ getUsersWhoStarred p v =
     vmap    = extractMap v
     pkgname = unPackageName p
 
-askUserStarred :: PackageName -> UserId -> Votes -> Bool
+askUserStarred :: PackageName -> UserId -> Stars -> Bool
 askUserStarred  p uid v =
   case pkgname `Map.member` vmap of
     True -> uid `Set.member` (vmap Map.! pkgname)
@@ -61,9 +61,9 @@ askUserStarred  p uid v =
     vmap = extractMap v
     pkgname = unPackageName p
 
-getNumberOfStarsFor :: PackageName -> Votes -> Int
+getNumberOfStarsFor :: PackageName -> Stars -> Int
 getNumberOfStarsFor pkgname vmap =
   Set.size (getUsersWhoStarred pkgname vmap)
 
-enumerate :: Votes -> [(String, Set UserId)]
+enumerate :: Stars -> [(String, Set UserId)]
 enumerate vmap = Map.toList (extractMap vmap)
