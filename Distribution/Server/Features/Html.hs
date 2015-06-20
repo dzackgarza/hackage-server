@@ -1523,10 +1523,10 @@ mkHtmlSearch HtmlUtilities{..}
             pkgnames <- searchPackages terms
             let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
             {-pkgDetails <- liftIO $ makeItemList pageResults-}
-            pkgDetails <- liftIO $ makeItemListA pageResults
-              {-case "sorted" == "sorted" of-}
-                {-True -> liftIO $ makeItemListA pageResults-}
-                {-False -> liftIO $ makeItemList pageResults-}
+            pkgDetails <-
+              case dosort of
+                Just "true"   -> liftIO $ makeItemListA pageResults
+                _          -> liftIO $ makeItemList pageResults
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
                 [ toHtml $ searchForm termsStr False
