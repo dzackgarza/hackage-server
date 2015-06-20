@@ -1382,7 +1382,7 @@ mkHtmlTags HtmlUtilities{..}
                         , lookupPackageName
                         }
                       }
-           ListFeature{makeItemList}
+           ListFeature{makeItemList, makeItemListA}
            TagsFeature{..} = HtmlTags{..}
   where
     tags = tagsResource
@@ -1486,7 +1486,7 @@ mkHtmlSearch :: HtmlUtilities
              -> HtmlSearch
 mkHtmlSearch HtmlUtilities{..}
              CoreFeature{..}
-             ListFeature{makeItemList}
+             ListFeature{makeItemList, makeItemListA}
              SearchFeature{..} =
     HtmlSearch{..}
   where
@@ -1498,11 +1498,12 @@ mkHtmlSearch HtmlUtilities{..}
 
     servePackageFind :: DynamicPath -> ServerPartE Response
     servePackageFind _ = do
-        (mtermsStr, offset, limit, mexplain) <-
-          queryString $ (,,,) <$> optional (look "terms")
+        (mtermsStr, offset, limit, mexplain, dosort) <-
+          queryString $ (,,,,) <$> optional (look "terms")
                               <*> mplus (lookRead "offset") (pure 0)
                               <*> mplus (lookRead "limit") (pure 100)
                               <*> optional (look "explain")
+                              <*> optional (look "sort")
         let explain = isJust mexplain
         case mtermsStr of
           Just termsStr | explain
@@ -1521,7 +1522,11 @@ mkHtmlSearch HtmlUtilities{..}
             currentTime <- liftIO $ getCurrentTime
             pkgnames <- searchPackages terms
             let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
-            pkgDetails <- liftIO $ makeItemList pageResults
+            {-pkgDetails <- liftIO $ makeItemList pageResults-}
+            pkgDetails <- liftIO $ makeItemListA pageResults
+              {-case "sorted" == "sorted" of-}
+                {-True -> liftIO $ makeItemListA pageResults-}
+                {-False -> liftIO $ makeItemList pageResults-}
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
                 [ toHtml $ searchForm termsStr False

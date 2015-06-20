@@ -31,6 +31,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.List as L
 
 
 data ListFeature = ListFeature {
@@ -40,6 +41,7 @@ data ListFeature = ListFeature {
 
     constructItemIndex :: IO (Map PackageName PackageItem),
     makeItemList :: [PackageName] -> IO [PackageItem],
+    makeItemListA :: [PackageName] -> IO [PackageItem],
     makeItemMap  :: forall a. Map PackageName a -> IO (Map PackageName (PackageItem, a)),
     getAllLists  :: IO (Map PackageName PackageItem)
 }
@@ -229,6 +231,11 @@ listFeature CoreFeature{..}
     makeItemList pkgnames = do
         mainMap <- readMemState itemCache
         return $ catMaybes $ map (flip Map.lookup mainMap) pkgnames
+
+    makeItemListA :: [PackageName] -> IO [PackageItem]
+    makeItemListA pkgnames = do
+        mainMap <- readMemState itemCache
+        return $ catMaybes $ map (flip Map.lookup mainMap) (L.sort pkgnames)
 
     makeItemMap :: Map PackageName a -> IO (Map PackageName (PackageItem, a))
     makeItemMap pkgmap = do
