@@ -711,6 +711,28 @@ ul.directory-list {
   padding: .3em 1em .3em 3px;
 }
 
-.search-results-header {
+.search-results-header th {
   border-bottom: 1px solid #999;
+  padding: .3em 1em .3em 3px;
+}
+
+.parameter-section {
+  background: gainsboro;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+}
+
+.parameter-section div {
+  float: left;
+  margin-right: 1.5em;
+  font-size: .85em;
+}
+
+.parameter-section label {
+  display: block;
+}
+
+fieldset {
+  border: 0;
 }

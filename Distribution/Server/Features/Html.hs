@@ -1537,25 +1537,25 @@ mkHtmlSearch HtmlUtilities{..}
                 ]
       where
         resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr =
+          thediv ! [theclass "results-section"] <<
             [ h2 << "Results"
-            , paragraph << ("(" ++ show (fst range + 1) ++ " to "
-                            ++ show (snd range) ++ ")"
-                            ++ " of " ++ show (length pkgDetails))
+            , paragraph << ("(" ++
+                case (length pkgDetails) of
+                  0 -> show (fst range)
+                  _ -> show (fst range + 1)
+                ++ " to " ++ show (snd range) ++ ")"
+                ++ " of " ++ show (length pkgDetails))
             , case pkgDetails of
-                [] | offset == 0 -> toHtml "None"
-                   | otherwise   -> toHtml "No more results"
-                _ -> toHtml
+                []  | offset == 0 -> toHtml "None"
+                    | otherwise   -> toHtml "No more results"
+                _ ->  toHtml
                       [ table ! [theclass "search-results-table"] <<
-                        [ thead ! [theclass "search-results-header"]
-                            << resultsHeader
+                        [ thead ! [theclass "search-results-header"] << resultsHeader
                         , tbody << map customRender pkgDetails
                         ]
-                        {-ulist ! [theclass "searchresults"]-}
-                             {-<< map renderSearchResult pkgDetails-}
                       , if null moreResults
                           then noHtml
-                          else anchor ! [href moreResultsLink]
-                                     << "More results..."
+                          else anchor ! [href moreResultsLink] << "More results..."
                       ]
             ]
           where
@@ -1586,8 +1586,12 @@ mkHtmlSearch HtmlUtilities{..}
                 ptype _ 0 = "library"
                 ptype lib num = (if lib then "library and " else "")
                                 ++ (case num of 1 -> "program"; _ -> "programs")
-                classes = case classList of [] -> []; _ -> [theclass $ unwords classList]
-                classList = (case itemDeprecated item of Nothing -> []; _ -> ["deprecated"])
+                classes = case classList of
+                  [] -> []
+                  _ -> [theclass $ unwords classList]
+                classList = (case itemDeprecated item of
+                  Nothing -> []
+                  _ -> ["deprecated"])
 
             range = (offset, offset + length pkgDetails)
             moreResultsLink =
@@ -1597,15 +1601,38 @@ mkHtmlSearch HtmlUtilities{..}
              ++ "&limit="  ++ show limit
 
         searchForm termsStr explain =
-          [ h2 << "Package search"
-          , form ! [XHtml.method "GET", action "/packages/search"] <<
-              [ input ! [value termsStr, name "terms", identifier "terms"]
-              , toHtml " "
-              , input ! [thetype "submit", value "Search"]
-              , if explain then input ! [thetype "hidden", name "explain"]
-                           else noHtml
-              ]
-          ]
+          thediv ! [theclass "parameter-section"] <<
+            [ h2 << "Package Search"
+            , hr
+            , form ! [XHtml.method "GET", action "/packages/search"] <<
+                fieldset <<
+                  [ thediv <<
+                      [ label   ! [thefor     "category_form"] << "Category"
+                      , select  ! [identifier "category_form"] <<
+                        [ option ! [value "0"] << "Any"
+                        , option ! [value "1"] << "Other"
+                        ]
+                      ]
+                  , thediv <<
+                      [ label ! [thefor "terms"] << "Terms"
+                      , input ! [value termsStr, name "terms", identifier "terms"]
+                      ]
+                  , thediv <<
+                    [ label  ! [thefor      "sort_form"] << "Sort"
+                    , select ! [identifier  "sort_form"] <<
+                      [ option ! [value "0"] << "Lexical"
+                      , option ! [value "1"] << "Popularity"
+                      ]
+                    ]
+                  , thediv <<
+                      [ label ! [thefor "thesearch"] << spaceHtml
+                      , input ! [thetype "submit", value "Search", identifier "thesearch"]
+                      , if explain
+                          then input ! [thetype "hidden", name "explain"]
+                          else noHtml
+                      ]
+                  ]
+            ]
 
         alternativeSearch =
           paragraph <<
