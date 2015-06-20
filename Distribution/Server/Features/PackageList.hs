@@ -13,6 +13,8 @@ import Distribution.Server.Features.Core
 import Distribution.Server.Features.DownloadCount
 import Distribution.Server.Features.Tags
 import Distribution.Server.Features.PreferredVersions
+import Distribution.Server.Features.Ranking
+
 import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
 import Distribution.Server.Util.CountingMap (cmFind)
 
@@ -48,37 +50,39 @@ instance IsHackageFeature ListFeature where
 
 data PackageItem = PackageItem {
     -- The name of the package
-    itemName :: !PackageName,
+      itemName :: !PackageName
     -- The tags for this package
-    itemTags :: !(Set Tag),
+    , itemTags :: !(Set Tag)
     -- If the package is deprecated, what is it deprecated in favor of
-    itemDeprecated :: !(Maybe [PackageName]),
+    , itemDeprecated :: !(Maybe [PackageName])
     -- The description of the package from its Cabal file
-    itemDesc :: !String,
+    , itemDesc :: !String
     -- Whether the item is in the Haskell Platform
   --itemPlatform :: Bool,
     -- The total number of downloads. (For sorting, not displaying.)
     -- Updated periodically.
-    itemDownloads :: !Int,
+    , itemDownloads :: !Int
     -- The number of direct revdeps. (Likewise.)
     -- also: distinguish direct/flat?
     -- [reverse index disabled] itemRevDepsCount :: !Int,
     -- Whether there's a library here.
-    itemHasLibrary :: !Bool,
+    , itemHasLibrary :: !Bool
     -- How many executables (>=0) this package has.
-    itemNumExecutables :: !Int
+    , itemNumExecutables :: !Int
     -- Hotness: a more heuristic way to sort packages. presently non-existent.
   --itemHotness :: Int
+    -- How many stars a package has received.
+    , itemNumStars :: !Int
 }
 
 instance MemSize PackageItem where
-    memSize (PackageItem a b c d e f g) = memSize7 a b c d e f g
+    memSize (PackageItem a b c d e f g h) = memSize8 a b c d e f g h
 
 
 emptyPackageItem :: PackageName -> PackageItem
 emptyPackageItem pkg = PackageItem pkg Set.empty Nothing "" 0
                                    -- [reverse index disabled] 0
-                                   False 0
+                                   False 0 0
 
 
 initListFeature :: ServerEnv
@@ -87,6 +91,7 @@ initListFeature :: ServerEnv
                     -> DownloadFeature
                     -> TagsFeature
                     -> VersionsFeature
+                    -> RankingFeature
                     -> IO ListFeature)
 initListFeature ServerEnv{ serverVerbosity = verbosity } = do
     itemCache  <- newMemStateWHNF Map.empty
@@ -96,10 +101,11 @@ initListFeature ServerEnv{ serverVerbosity = verbosity } = do
               -- [reverse index disabled] revs
               download
               tagsf@TagsFeature{..}
-              versions@VersionsFeature{..} -> do
+              versions@VersionsFeature{..}
+              rank@RankingFeature{..} -> do
 
       let (feature, modifyItem, updateDesc) =
-            listFeature core download tagsf versions
+            listFeature core download tagsf versions rank
                         itemCache itemUpdate
 
       registerHookJust packageChangeHook isPackageChangeAny $ \(pkgid, _) ->
@@ -129,6 +135,7 @@ listFeature :: CoreFeature
             -> DownloadFeature
             -> TagsFeature
             -> VersionsFeature
+            -> RankingFeature
             -> MemState (Map PackageName PackageItem)
             -> Hook (Set PackageName) ()
             -> (ListFeature,
@@ -136,7 +143,8 @@ listFeature :: CoreFeature
                 PackageName -> IO ())
 
 listFeature CoreFeature{..}
-            DownloadFeature{..} TagsFeature{..} VersionsFeature{..}
+            DownloadFeature{..} TagsFeature{..}
+            VersionsFeature{..} RankingFeature{..}
             itemCache itemUpdate
   = (ListFeature{..}, modifyItem, updateDesc)
   where
@@ -198,11 +206,13 @@ listFeature CoreFeature{..}
         tags  <- queryTagsForPackage pkgname
         downs <- recentPackageDownloads
         deprs <- queryGetDeprecatedFor pkgname
+        stars <- pkgNumStars pkgname
         return $ (,) pkgname $ (updateDescriptionItem (pkgDesc pkg) $ emptyPackageItem pkgname) {
             itemTags       = tags
           , itemDeprecated = deprs
           , itemDownloads  = cmFind pkgname downs
             -- [reverse index disabled] , itemRevDepsCount = directReverseCount revCount
+          , itemNumStars = stars
           }
 
     ------------------------------

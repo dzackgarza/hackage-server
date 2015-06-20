@@ -250,6 +250,7 @@ initHackageFeatures env@ServerEnv{serverVerbosity = verbosity} = do
                          downloadFeature
                          tagsFeature
                          versionsFeature
+                         rankingFeature
 
     searchFeature   <- mkSearchFeature
                          coreFeature

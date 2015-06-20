@@ -694,3 +694,23 @@ ul.directory-list {
 .text-button:hover {
   text-decoration: underline;
 }
+
+.search-results-table {
+  width: 100%;
+  border-spacing: 2px;
+  border-color: grey;
+  font-size: 0.8em;
+  border-collapse: collapse;
+}
+
+.search-results-table tr {
+  background: #e4eeff;
+}
+
+.search-results-table td {
+  padding: .3em 1em .3em 3px;
+}
+
+.search-results-header {
+  border-bottom: 1px solid #999;
+}

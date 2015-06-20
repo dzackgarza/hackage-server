@@ -1538,16 +1538,20 @@ mkHtmlSearch HtmlUtilities{..}
       where
         resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr =
             [ h2 << "Results"
-            , if offset == 0
-                then noHtml
-                else paragraph << ("(" ++ show (fst range + 1) ++ " to "
-                                       ++ show (snd range) ++ ")")
+            , paragraph << ("(" ++ show (fst range + 1) ++ " to "
+                            ++ show (snd range) ++ ")"
+                            ++ " of " ++ show (length pkgDetails))
             , case pkgDetails of
                 [] | offset == 0 -> toHtml "None"
                    | otherwise   -> toHtml "No more results"
                 _ -> toHtml
-                      [ ulist ! [theclass "searchresults"]
-                             << map renderSearchResult pkgDetails
+                      [ table ! [theclass "search-results-table"] <<
+                        [ thead ! [theclass "search-results-header"]
+                            << resultsHeader
+                        , tbody << map customRender pkgDetails
+                        ]
+                        {-ulist ! [theclass "searchresults"]-}
+                             {-<< map renderSearchResult pkgDetails-}
                       , if null moreResults
                           then noHtml
                           else anchor ! [href moreResultsLink]
@@ -1555,17 +1559,23 @@ mkHtmlSearch HtmlUtilities{..}
                       ]
             ]
           where
-            renderSearchResult :: PackageItem -> Html
-            renderSearchResult item = li ! classes <<
-              [ packageNameLink pkgname
-              , toHtml $ " " ++ ptype (itemHasLibrary item) (itemNumExecutables item)
-              , br
-              , toHtml (itemDesc item)
-              , br
-              , small ! [ theclass "info" ] <<
-                [ toHtml (renderTags (itemTags item))
-                , " Last uploaded " +++ humanTime ]
-              ]
+            resultsHeader = [ th << "Tags"
+                            , th << "Type"
+                            , th << "Name"
+                            , th << "Stars"
+                            , th << "Description"
+                            , th << "Last Upload"
+                            ]
+            customRender :: PackageItem -> Html
+            customRender item =
+              tr <<
+                [ td << toHtml (renderTags (itemTags item))
+                , td << ptype (itemHasLibrary item) (itemNumExecutables item)
+                , td << packageNameLink pkgname
+                , td << toHtml (show ( itemNumStars item))
+                , td << toHtml (itemDesc item)
+                , td << toHtml humanTime
+                ]
               where
                 pkgname   = itemName item
                 timestamp = maximum
