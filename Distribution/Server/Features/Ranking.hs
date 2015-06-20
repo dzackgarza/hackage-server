@@ -46,9 +46,10 @@ import Control.Arrow (first)
 -- | Define the prototype for this feature
 data RankingFeature = RankingFeature {
     rankingFeatureInterface :: HackageFeature
-  , didUserStar :: MonadIO m => PackageName -> UserId -> m Bool
-  , pkgNumStars :: MonadIO m => PackageName -> m Int
-  , renderStarsHtml :: PackageName -> ServerPartE (String, X.Html)
+  , starHook                :: Hook (PackageName) ()
+  , didUserStar             :: MonadIO m => PackageName -> UserId -> m Bool
+  , pkgNumStars             :: MonadIO m => PackageName -> m Int
+  , renderStarsHtml         :: PackageName -> ServerPartE (String, X.Html)
 }
 
 -- | Implement the isHackageFeature 'interface'
@@ -62,15 +63,16 @@ initRankingFeature :: ServerEnv
                       -> IO RankingFeature)
 
 initRankingFeature ServerEnv{serverStateDir} = do
-  -- Tracks the map of package names to UserIds in memory
   initialStarsCache <- newMemStateWHNF initialStars
-  -- Persist the map to the database
-  dbStarsState <- starsStateComponent serverStateDir
+  dbStarsState      <- starsStateComponent serverStateDir
+  updateStars       <- newHook
+
   return $ \coref@CoreFeature{..} userf@UserFeature{..} -> do
     let feature = rankingFeature
                   initialStarsCache
                   dbStarsState
                   coref userf
+                  updateStars
     return feature
 
 starsStateComponent :: FilePath -> IO (StateComponent AcidState Stars)
@@ -92,6 +94,7 @@ rankingFeature ::  MemState Stars             -- PackageName -> Set UserId
                 -> StateComponent AcidState Stars
                 -> CoreFeature                -- To get site package list
                 -> UserFeature                -- To authenticate users
+                -> Hook (PackageName) ()
                 -> RankingFeature
 
 rankingFeature  starsCache
@@ -104,6 +107,7 @@ rankingFeature  starsCache
                 , queryGetPackageIndex
                 }
                 UserFeature{..}
+                starHook
   = RankingFeature{..}
   where
     rankingFeatureInterface =
@@ -219,6 +223,7 @@ rankingFeature  starsCache
               "Error: You must log in to star a package."
         Just uid -> do
           updateState starsState $ RState.DbAddStar pkgname uid
+          runHook_ starHook pkgname
           -- Redirect back to package page.
           seeOther previousPage (toResponse $ responseMsg)
           where
@@ -240,6 +245,7 @@ rankingFeature  starsCache
               "Error: You must log in to unstar a package."
         Just uid -> do
           updateState starsState $ RState.DbRemoveStar pkgname uid
+          runHook_ starHook pkgname
           -- Redirect back to package page.
           seeOther previousPage (toResponse $ responseMsg)
           where

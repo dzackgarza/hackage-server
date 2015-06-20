@@ -62,9 +62,11 @@ data UserFeature = UserFeature {
     guardAuthorised    :: [PrivilegeCondition] -> ServerPartE UserId,
     -- | Require being logged in, giving the id of the current user.
     guardAuthenticated :: ServerPartE UserId,
+    -- | Check if a user is authenticated without propagating a NoAuth
+    -- Response up the stack.
+    tryAuthenticated :: ServerPartE (Maybe UserId),
     -- | A hook to override the default authentication error in particular
     -- circumstances.
-    tryAuthenticated :: ServerPartE (Maybe UserId),
     authFailHook       :: Hook Auth.AuthError (Maybe ErrorResponse),
     -- | Retrieves the entire user base.
     queryGetUserDb    :: forall m. MonadIO m => m Users.Users,
@@ -374,7 +376,8 @@ userFeature  usersState adminsState
         users   <- queryGetUserDb
         guardAuthenticatedWithErrHook users
 
-
+    -- Used to customize behavior based on whether or not the user is
+    -- authenticated.
     tryAuthenticated :: ServerPartE (Maybe UserId)
     tryAuthenticated = do
       users <- queryGetUserDb

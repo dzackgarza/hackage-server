@@ -124,9 +124,17 @@ initListFeature ServerEnv{ serverVerbosity = verbosity } = do
               tags <- queryTagsForPackage pkgname
               modifyItem pkgname (updateTagItem tags)
           runHook_ itemUpdate pkgs
+
       registerHook deprecatedHook $ \(pkgname, mpkgs) -> do
           modifyItem pkgname (updateDeprecation mpkgs)
           runHook_ itemUpdate (Set.singleton pkgname)
+
+      registerHook starHook $ \pkgname -> do
+        stars <- pkgNumStars pkgname
+        modifyItem pkgname (updateStarsItem stars)
+        runHook_ itemUpdate (Set.singleton pkgname)
+
+
 
       return feature
 
@@ -177,6 +185,7 @@ listFeature CoreFeature{..}
                 case pkgs of
                     [] -> return () --this shouldn't happen
                     _  -> modifyMemState itemCache . uncurry Map.insert =<< constructItem (last pkgs)
+
     updateDesc pkgname = do
         index <- queryGetPackageIndex
         let pkgs = PackageIndex.lookupPackageName index pkgname
@@ -242,6 +251,12 @@ updateDescriptionItem genDesc item =
         -- CondTree instead.
         itemHasLibrary = hasLibs desc,
         itemNumExecutables = length . filter (buildable . buildInfo) $ executables desc
+    }
+
+updateStarsItem :: Int -> PackageItem -> PackageItem
+updateStarsItem n item =
+  item {
+    itemNumStars = n
     }
 
 updateTagItem :: Set Tag -> PackageItem -> PackageItem
