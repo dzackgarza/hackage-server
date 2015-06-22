@@ -1528,7 +1528,7 @@ mkHtmlSearch HtmlUtilities{..}
               case sorttype of
                 Just "alpha"  -> liftIO $ makeItemListA pageResults
                 Just "pop"    -> liftIO $ makeItemListP pageResults
-                _             -> liftIO $ makeItemList  pageResults
+                _          -> liftIO $ makeItemList  pageResults
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
                 [ toHtml $ searchForm termsStr False category sorttype

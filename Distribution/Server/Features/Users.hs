@@ -376,17 +376,6 @@ userFeature  usersState adminsState
         users   <- queryGetUserDb
         guardAuthenticatedWithErrHook users
 
-    -- Used to customize behavior based on whether or not the user is
-    -- authenticated.
-    tryAuthenticated :: ServerPartE (Maybe UserId)
-    tryAuthenticated = do
-      users <- queryGetUserDb
-      authres <- Auth.checkAuthenticated Auth.hackageRealm users
-      return $ case authres of
-        Left autherr -> Nothing
-      {-Left  autherr -> throwError =<< authErrorResponse realm autherr-}
-        Right (uid, _) -> Just uid
-
     -- As above but using the given userdb snapshot
     guardAuthenticatedWithErrHook :: Users.Users -> ServerPartE UserId
     guardAuthenticatedWithErrHook users = do
@@ -402,6 +391,16 @@ userFeature  usersState adminsState
           overrideResponse <- msum <$> runHook authFailHook err
           throwError (fromMaybe defaultResponse overrideResponse)
 
+    -- Used to customize behavior based on whether or not the user is
+    -- authenticated.
+    tryAuthenticated :: ServerPartE (Maybe UserId)
+    tryAuthenticated = do
+      users <- queryGetUserDb
+      authres <- Auth.checkAuthenticated Auth.hackageRealm users
+      return $ case authres of
+        Left autherr -> Nothing
+      {-Left  autherr -> throwError =<< authErrorResponse realm autherr-}
+        Right (uid, _) -> Just uid
 
     -- | Resources representing the collection of known users.
     --

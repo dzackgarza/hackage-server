@@ -3,6 +3,7 @@ module Distribution.Server.Features.PackageList (
     ListFeature(..),
     initListFeature,
     PackageItem(..),
+    sortByStars,
     tagHistogram
   ) where
 
@@ -32,6 +33,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.List as L
+import Data.Ord (comparing)
 
 
 data ListFeature = ListFeature {
@@ -77,6 +79,9 @@ data PackageItem = PackageItem {
     -- How many stars a package has received.
     , itemNumStars :: !Int
 }
+
+sortByStars :: [PackageItem] -> [PackageItem]
+sortByStars = sortBy (comparing itemNumStars)
 
 instance MemSize PackageItem where
     memSize (PackageItem a b c d e f g h) = memSize8 a b c d e f g h
@@ -156,7 +161,8 @@ listFeature :: CoreFeature
 listFeature CoreFeature{..}
             DownloadFeature{..} TagsFeature{..}
             VersionsFeature{..} RankingFeature{..}
-            itemCache itemUpdate
+            itemCache
+            itemUpdate
   = (ListFeature{..}, modifyItem, updateDesc)
   where
     listFeatureInterface = (emptyHackageFeature "list") {
@@ -241,7 +247,7 @@ listFeature CoreFeature{..}
     makeItemListP :: [PackageName] -> IO [PackageItem]
     makeItemListP pkgnames = do
         mainMap <- readMemState itemCache
-        return $ catMaybes $ map (flip Map.lookup mainMap) (L.sort pkgnames)
+        return $ L.reverse $ sortByStars $ catMaybes $ map (flip Map.lookup mainMap) pkgnames
 
     makeItemMap :: Map PackageName a -> IO (Map PackageName (PackageItem, a))
     makeItemMap pkgmap = do
