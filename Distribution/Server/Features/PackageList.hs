@@ -35,15 +35,16 @@ import Data.List as L
 
 
 data ListFeature = ListFeature {
-    listFeatureInterface :: HackageFeature,
+    listFeatureInterface  :: HackageFeature,
 
-    itemUpdate :: Hook (Set PackageName) (),
+    itemUpdate            :: Hook (Set PackageName) (),
 
-    constructItemIndex :: IO (Map PackageName PackageItem),
-    makeItemList :: [PackageName] -> IO [PackageItem],
-    makeItemListA :: [PackageName] -> IO [PackageItem],
-    makeItemMap  :: forall a. Map PackageName a -> IO (Map PackageName (PackageItem, a)),
-    getAllLists  :: IO (Map PackageName PackageItem)
+    constructItemIndex    :: IO (Map PackageName PackageItem),
+    makeItemList          :: [PackageName] -> IO [PackageItem],
+    makeItemListA         :: [PackageName] -> IO [PackageItem],
+    makeItemListP         :: [PackageName] -> IO [PackageItem],
+    makeItemMap           :: forall a. Map PackageName a -> IO (Map PackageName (PackageItem, a)),
+    getAllLists           :: IO (Map PackageName PackageItem)
 }
 
 instance IsHackageFeature ListFeature where
@@ -234,6 +235,11 @@ listFeature CoreFeature{..}
 
     makeItemListA :: [PackageName] -> IO [PackageItem]
     makeItemListA pkgnames = do
+        mainMap <- readMemState itemCache
+        return $ catMaybes $ map (flip Map.lookup mainMap) (L.sort pkgnames)
+
+    makeItemListP :: [PackageName] -> IO [PackageItem]
+    makeItemListP pkgnames = do
         mainMap <- readMemState itemCache
         return $ catMaybes $ map (flip Map.lookup mainMap) (L.sort pkgnames)
 

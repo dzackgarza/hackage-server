@@ -1382,7 +1382,7 @@ mkHtmlTags HtmlUtilities{..}
                         , lookupPackageName
                         }
                       }
-           ListFeature{makeItemList, makeItemListA}
+           ListFeature{makeItemList, makeItemListA, makeItemListP}
            TagsFeature{..} = HtmlTags{..}
   where
     tags = tagsResource
@@ -1486,7 +1486,7 @@ mkHtmlSearch :: HtmlUtilities
              -> HtmlSearch
 mkHtmlSearch HtmlUtilities{..}
              CoreFeature{..}
-             ListFeature{makeItemList, makeItemListA}
+             ListFeature{makeItemList, makeItemListA, makeItemListP}
              SearchFeature{..} =
     HtmlSearch{..}
   where
@@ -1498,12 +1498,13 @@ mkHtmlSearch HtmlUtilities{..}
 
     servePackageFind :: DynamicPath -> ServerPartE Response
     servePackageFind _ = do
-        (mtermsStr, offset, limit, mexplain, dosort) <-
-          queryString $ (,,,,) <$> optional (look "terms")
+        (mtermsStr, offset, limit, mexplain, sorttype, category) <-
+          queryString $ (,,,,,) <$> optional (look "terms")
                               <*> mplus (lookRead "offset") (pure 0)
                               <*> mplus (lookRead "limit") (pure 100)
                               <*> optional (look "explain")
                               <*> optional (look "sort")
+                              <*> optional (look "category")
         let explain = isJust mexplain
         case mtermsStr of
           Just termsStr | explain
@@ -1524,12 +1525,13 @@ mkHtmlSearch HtmlUtilities{..}
             let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
             {-pkgDetails <- liftIO $ makeItemList pageResults-}
             pkgDetails <-
-              case dosort of
-                Just "true"   -> liftIO $ makeItemListA pageResults
-                _          -> liftIO $ makeItemList pageResults
+              case sorttype of
+                Just "alpha"  -> liftIO $ makeItemListA pageResults
+                Just "pop"    -> liftIO $ makeItemListP pageResults
+                _             -> liftIO $ makeItemList  pageResults
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
-                [ toHtml $ searchForm termsStr False
+                [ toHtml $ searchForm termsStr False category sorttype
                 , toHtml $ resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr
                 , alternativeSearch
                 ]
@@ -1537,7 +1539,7 @@ mkHtmlSearch HtmlUtilities{..}
           _ ->
             return $ toResponse $ Resource.XHtml $
               hackagePage "Text search" $
-                [ toHtml $ searchForm "" explain
+                [ toHtml $ searchForm "" explain (Just "") (Just "")
                 , alternativeSearch
                 ]
       where
@@ -1605,7 +1607,7 @@ mkHtmlSearch HtmlUtilities{..}
              ++ "&offset=" ++ show (offset + limit)
              ++ "&limit="  ++ show limit
 
-        searchForm termsStr explain =
+        searchForm termsStr explain category sorttype =
           thediv ! [theclass "parameter-section"] <<
             [ h2 << "Package Search"
             , hr
@@ -1613,9 +1615,9 @@ mkHtmlSearch HtmlUtilities{..}
                 fieldset <<
                   [ thediv <<
                       [ label   ! [thefor     "category_form"] << "Category"
-                      , select  ! [identifier "category_form"] <<
-                        [ option ! [value "0"] << "Any"
-                        , option ! [value "1"] << "Other"
+                      , select  ! [identifier "category_form", name "category"] <<
+                        [ option ! genOption category "a" << "Any"
+                        , option ! genOption category "o" << "Other"
                         ]
                       ]
                   , thediv <<
@@ -1624,20 +1626,31 @@ mkHtmlSearch HtmlUtilities{..}
                       ]
                   , thediv <<
                     [ label  ! [thefor      "sort_form"] << "Sort"
-                    , select ! [identifier  "sort_form"] <<
-                      [ option ! [value "0"] << "Lexical"
-                      , option ! [value "1"] << "Popularity"
+                    , select ! [identifier  "sort_form", name "sort"] <<
+                      [ option ! genOption sorttype "rel"   << "Relevance"
+                      , option ! genOption sorttype "alpha" << "Name"
+                      , option ! genOption sorttype "pop"   << "Popularity"
                       ]
                     ]
                   , thediv <<
-                      [ label ! [thefor "thesearch"] << spaceHtml
-                      , input ! [thetype "submit", value "Search", identifier "thesearch"]
+                      [ label ! [thefor "search_form"] << spaceHtml
+                      , input ! [thetype "submit", value "Search", identifier "search_form"]
                       , if explain
                           then input ! [thetype "hidden", name "explain"]
                           else noHtml
                       ]
                   ]
             ]
+              where
+                genOption :: Maybe String -> String -> [HtmlAttr]
+                genOption querystr val =
+                  case querystr of
+                    Nothing         -> [value val]
+                    Just parameter  ->
+                      case parameter == val of
+                        False -> [value val]
+                        True  -> [value val, selected]
+
 
         alternativeSearch =
           paragraph <<
