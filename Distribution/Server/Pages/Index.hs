@@ -53,7 +53,7 @@ data Category = Category String | NoCategory
 formatPkgGroups :: [PackageIndexInfo] -> Html
 formatPkgGroups pkgs = hackagePage "packages by category" docBody
   where docBody =
-                (h2 << "Packages by category") :
+                (h2 << "Packages by Category") :
                 -- table of contents
                 paragraph ! [theclass "toc"] <<
                         (bold << "Categories:" : toHtml " " :
