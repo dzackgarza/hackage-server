@@ -1533,10 +1533,6 @@ mkHtmlSearch HtmlUtilities{..}
                 Just "pop"    -> liftIO $ makeItemListP pageResults
                 _          -> liftIO $ makeItemList  pageResults
 
-            {-let pkgsMatchingTags =-}
-              {-case tagRestriction of-}
-                {-Just t -> [p | p <- pkgDetails, (Tag t) `member` (itemTags p)]-}
-                {-_   -> [p | p <- pkgDetails]-}
             let pkgsMatchingTags = case tagRestriction of
                   Just t ->
                     [pk | pk <- pkgDetails, (Tag t) `member` (itemTags pk)]
