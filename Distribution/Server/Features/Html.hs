@@ -56,7 +56,7 @@ import Distribution.PackageDescription
 import Data.List (intercalate, intersperse, insert, sortBy)
 import Data.Function (on)
 import qualified Data.Map as Map
-import Data.Set (Set)
+import Data.Set (Set, member)
 import qualified Data.Set as Set
 import qualified Data.Vector as Vec
 import Data.Maybe (fromMaybe, isJust)
@@ -1526,7 +1526,6 @@ mkHtmlSearch HtmlUtilities{..}
             currentTime <- liftIO $ getCurrentTime
             pkgnames <- searchPackages terms
             let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
-            {-pkgDetails <- liftIO $ makeItemList pageResults-}
 
             pkgDetails <-
               case sorttype of
@@ -1534,10 +1533,20 @@ mkHtmlSearch HtmlUtilities{..}
                 Just "pop"    -> liftIO $ makeItemListP pageResults
                 _          -> liftIO $ makeItemList  pageResults
 
+            {-let pkgsMatchingTags =-}
+              {-case tagRestriction of-}
+                {-Just t -> [p | p <- pkgDetails, (Tag t) `member` (itemTags p)]-}
+                {-_   -> [p | p <- pkgDetails]-}
+            let pkgsMatchingTags = case tagRestriction of
+                  Just t ->
+                    [pk | pk <- pkgDetails, (Tag t) `member` (itemTags pk)]
+                  _ ->
+                    pkgDetails
+
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
                 [ toHtml $ searchForm termsStr False tagRestriction sorttype alltags
-                , toHtml $ resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr
+                , toHtml $ resultsArea pkgIndex currentTime pkgsMatchingTags offset limit moreResults termsStr
                 , alternativeSearch
                 ]
 
