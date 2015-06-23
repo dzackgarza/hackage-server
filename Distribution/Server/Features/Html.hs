@@ -1554,38 +1554,43 @@ mkHtmlSearch HtmlUtilities{..}
                 , alternativeSearch
                 ]
       where
-        resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr totalNumResults sortType tagRestriction =
+        resultsArea pkgIndex currentTime pageResults offset limit moreResults termsStr totalNumResults sortType tagRestriction =
           thediv ! [theclass "results-section"] <<
             [ h2 << "Results"
-            , case pkgDetails of
+            , case pageResults of
                 []  | offset == 0 -> toHtml "No packages found."
                     | otherwise   -> toHtml "No more results"
                 _ ->  toHtml $
                       paragraph ! [theclass "alignleft"] << (show totalNumResults ++
                       " packages found. Showing results (" ++
-                        case (length pkgDetails) of
+                        case (length pageResults) of
                           0 -> show (fst range)
                           _ -> show (fst range + 1)
                         ++ " to " ++ show (snd range) ++ ")"
-                        ++ " of " ++ show (totalNumResults))
+                        ++ " of " ++ show (totalNumResults) ++ ". ")
                       +++ paragraph ! [theclass "alignright"] << (
-                        if null moreResults
+                        "Page 1 of " ++ show makePagination
+                        +++ if null moreResults
                           then noHtml
                           else anchor ! [href moreResultsLink] << "More results...")
                       +++ [ table ! [theclass "search-results-table"] <<
-                        [ thead ! [theclass "search-results-header"] << resultsHeader
-                        , tbody << map customRender pkgDetails
+                        [ thead ! [theclass "search-results-header"] << tableHeader
+                        , tbody << map customRender pageResults
                         ]
                       ]
             ]
           where
-            resultsHeader = [ th << "Tags"
-                            , th << "Type"
-                            , th << "Name"
-                            , th << "Stars"
-                            , th << "Description"
-                            , th << "Last Upload"
-                            ]
+            makePagination =
+              ceiling $ toRational totalNumResults / toRational limit
+
+            tableHeader = [ th << "Tags"
+                          , th << "Type"
+                          , th << "Name"
+                          , th << "Stars"
+                          , th << "Description"
+                          , th << "Last Upload"
+                          ]
+
             customRender :: PackageItem -> Html
             customRender item =
               tr <<
@@ -1613,7 +1618,7 @@ mkHtmlSearch HtmlUtilities{..}
                   Nothing -> []
                   _ -> ["deprecated"])
 
-            range = (offset, offset + length pkgDetails)
+            range = (offset, offset + length pageResults)
             moreResultsLink =
                 "/packages/search?"
              ++ "terms="   ++ escapeURIString isUnreserved termsStr
