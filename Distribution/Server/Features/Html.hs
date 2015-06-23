@@ -1500,7 +1500,7 @@ mkHtmlSearch HtmlUtilities{..}
 
     servePackageFind :: DynamicPath -> ServerPartE Response
     servePackageFind _ = do
-        (mtermsStr, offset, limit, mexplain, sorttype, tagRestriction) <-
+        (mtermsStr, offset, limit, mexplain, sortType, tagRestriction) <-
           queryString $ (,,,,,) <$> optional (look "terms")
                               <*> mplus (lookRead "offset") (pure 0)
                               <*> mplus (lookRead "limit") (pure 100)
@@ -1525,24 +1525,25 @@ mkHtmlSearch HtmlUtilities{..}
             pkgIndex <- liftIO $ queryGetPackageIndex
             currentTime <- liftIO $ getCurrentTime
             pkgnames <- searchPackages terms
-            let totalNumResults = length pkgnames
-            let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
 
-            pkgDetails <-
-              case sorttype of
-                Just "alpha"  -> liftIO $ makeItemListA pageResults
-                Just "pop"    -> liftIO $ makeItemListP pageResults
-                _             -> liftIO $ makeItemList  pageResults
-
+            -- Perform sorting/filtering
+            allItems <-
+              case sortType of
+                Just "alpha"  -> liftIO $ makeItemListA pkgnames
+                Just "pop"    -> liftIO $ makeItemListP pkgnames
+                _             -> liftIO $ makeItemList  pkgnames
             let pkgsMatchingTags = case tagRestriction of
-                  Just "any"  -> pkgDetails
-                  Just t      -> [pk | pk <- pkgDetails, (Tag t) `member` (itemTags pk)]
-                  _           -> pkgDetails
+                  Just "any"  -> allItems
+                  Just t      -> [pk | pk <- allItems, (Tag t) `member` (itemTags pk)]
+                  _           -> allItems
+
+            let totalNumResults = length pkgsMatchingTags
+            let (pageResults, moreResults) = splitAt limit (drop offset pkgsMatchingTags)
 
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
-                [ toHtml $ searchForm termsStr False tagRestriction sorttype alltags
-                , toHtml $ resultsArea pkgIndex currentTime pkgsMatchingTags offset limit moreResults termsStr totalNumResults
+                [ toHtml $ searchForm termsStr False tagRestriction sortType alltags
+                , toHtml $ resultsArea pkgIndex currentTime pageResults offset limit moreResults termsStr totalNumResults sortType tagRestriction
                 , alternativeSearch
                 ]
 
@@ -1553,7 +1554,7 @@ mkHtmlSearch HtmlUtilities{..}
                 , alternativeSearch
                 ]
       where
-        resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr totalNumResults =
+        resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr totalNumResults sortType tagRestriction =
           thediv ! [theclass "results-section"] <<
             [ h2 << "Results"
             , case pkgDetails of
@@ -1618,6 +1619,12 @@ mkHtmlSearch HtmlUtilities{..}
              ++ "terms="   ++ escapeURIString isUnreserved termsStr
              ++ "&offset=" ++ show (offset + limit)
              ++ "&limit="  ++ show limit
+             ++ case sortType of
+               Just s  -> "&sort="  ++ escapeURIString isUnreserved s
+               Nothing -> ""
+             ++ case tagRestriction of
+               Just t -> "&tag="    ++ escapeURIString isUnreserved t
+               Nothing -> ""
 
         searchForm termsStr explain tagRestriction sortType allTags =
           thediv ! [theclass "parameter-section"] <<
