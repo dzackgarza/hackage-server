@@ -1382,7 +1382,7 @@ mkHtmlTags HtmlUtilities{..}
                         , lookupPackageName
                         }
                       }
-           ListFeature{makeItemList, makeItemListA, makeItemListP}
+           ListFeature{makeItemList}
            TagsFeature{..} = HtmlTags{..}
   where
     tags = tagsResource
@@ -1542,7 +1542,7 @@ mkHtmlSearch HtmlUtilities{..}
 
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
-                [ toHtml $ searchForm termsStr False tagRestriction sortType alltags
+                [ toHtml $ searchForm termsStr False tagRestriction sortType alltags limit
                 , toHtml $ resultsArea pkgIndex currentTime pageResults offset limit moreResults termsStr totalNumResults sortType tagRestriction
                 , alternativeSearch
                 ]
@@ -1550,7 +1550,7 @@ mkHtmlSearch HtmlUtilities{..}
           _ ->
             return $ toResponse $ Resource.XHtml $
               hackagePage "Text search" $
-                [ toHtml $ searchForm "" explain (Just "") (Just "") alltags
+                [ toHtml $ searchForm "" explain (Just "") (Just "") alltags limit
                 , alternativeSearch
                 ]
       where
@@ -1569,10 +1569,7 @@ mkHtmlSearch HtmlUtilities{..}
                         ++ " to " ++ show (snd range) ++ ")"
                         ++ " of " ++ show (totalNumResults) ++ ". ")
                       +++ paragraph ! [theclass "alignright"] << (
-                        "Page 1 of " ++ show makePagination
-                        +++ if null moreResults
-                          then noHtml
-                          else anchor ! [href moreResultsLink] << "More results...")
+                        showCurrentPage +++ showPagination)
                       +++ [ table ! [theclass "search-results-table"] <<
                         [ thead ! [theclass "search-results-header"] << tableHeader
                         , tbody << map customRender pageResults
@@ -1580,8 +1577,22 @@ mkHtmlSearch HtmlUtilities{..}
                       ]
             ]
           where
-            makePagination =
-              ceiling $ toRational totalNumResults / toRational limit
+            showPagination =
+              if null moreResults
+                then noHtml
+                else
+                  anchor ! [href moreResultsLink] << "Next >"
+
+            showCurrentPage =
+              "Page " ++ show currentPage ++ " of " ++ show numPages
+              where
+                numPages :: Integer
+                numPages =
+                  ceiling $ toRational totalNumResults / toRational limit
+
+                currentPage :: Integer
+                currentPage =
+                  (toInteger offset `div` toInteger limit) + 1
 
             tableHeader = [ th << "Tags"
                           , th << "Type"
@@ -1631,32 +1642,44 @@ mkHtmlSearch HtmlUtilities{..}
                Just t -> "&tag="    ++ escapeURIString isUnreserved t
                Nothing -> ""
 
-        searchForm termsStr explain tagRestriction sortType allTags =
+        searchForm termsStr explain tagRestriction sortType allTags limit =
           thediv ! [theclass "parameter-section"] <<
             [ h2 << "Package Search"
             , hr
             , form ! [XHtml.method "GET", action "/packages/search"] <<
                 fieldset <<
                   [ thediv <<
-                      [ label   ! [thefor     "tag_form"] << "Tag"
-                      , select  ! [identifier "tag_form", name "tag"] <<
-                      (option ! [value "any"] << "Any" :
-                        zipWith (genOption tagRestriction)
-                          (map (display . fst) allTags)
-                          (map (display . fst) allTags))
-                      ]
+                    -- List of all tags
+                    [ label   ! [thefor     "tag_form"] << "Tag"
+                    , select  ! [identifier "tag_form", name "tag"] <<
+                    (option ! [value "any"] << "Any" :
+                      zipWith (genOptionMStr tagRestriction)
+                        (map (display . fst) allTags)
+                        (map (display . fst) allTags))
+                    ]
                   , thediv <<
-                      [ label ! [thefor "terms"] << "Terms"
-                      , input ! [value termsStr, name "terms", identifier "terms"]
-                      ]
+                    -- Keyword field
+                    [ label ! [thefor "terms"] << "Terms"
+                    , input ! [value termsStr, name "terms", identifier "terms"]
+                    ]
                   , thediv <<
+                    -- Sorting options
                     [ label  ! [thefor      "sort_form"] << "Sort"
                     , select ! [identifier  "sort_form", name "sort"] <<
-                    (zipWith (genOption sortType)
+                    (zipWith (genOptionMStr sortType)
                       ["rel",       "alpha",  "pop"]
                       ["Relevance", "Name",   "Popularity"])
                     ]
                   , thediv <<
+                    -- # of results per page
+                    [ label ! [thefor "limit_form"] << "Results per page"
+                    , select ! [identifier "limit_form", name "limit"] <<
+                    (zipWith (genOption limit)
+                      [100, 200, 300]
+                      ["100", "200", "300"])
+                    ]
+                  , thediv <<
+                      -- Submit button
                       [ label ! [thefor "search_form"] << spaceHtml
                       , input ! [thetype "submit", value "Search", identifier "search_form"]
                       , if explain
@@ -1666,8 +1689,9 @@ mkHtmlSearch HtmlUtilities{..}
                   ]
             ]
               where
-                genOption :: Maybe String -> String -> String -> Html
-                genOption querystr val text = option !
+                -- Preserve selected options (using Maybe String from query)
+                genOptionMStr :: Maybe String -> String -> String -> Html
+                genOptionMStr querystr val text = option !
                   case querystr of
                     Just parameter ->
                       case parameter == val of
@@ -1676,6 +1700,13 @@ mkHtmlSearch HtmlUtilities{..}
                     Nothing -> [value val]
                   << text
 
+                -- Preserve selected options (e.g. limit)
+                genOption :: Int -> Int -> String -> Html
+                genOption parameter val text = option !
+                  case parameter == val of
+                    True -> [value (show val), selected]
+                    False -> [value (show val)]
+                  << text
 
         alternativeSearch =
           paragraph <<
