@@ -736,3 +736,11 @@ ul.directory-list {
 fieldset {
   border: 0;
 }
+
+.alignleft {
+  float: left;
+}
+
+.alignright {
+  float: right;
+}

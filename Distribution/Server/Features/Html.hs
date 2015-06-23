@@ -1525,24 +1525,24 @@ mkHtmlSearch HtmlUtilities{..}
             pkgIndex <- liftIO $ queryGetPackageIndex
             currentTime <- liftIO $ getCurrentTime
             pkgnames <- searchPackages terms
+            let totalNumResults = length pkgnames
             let (pageResults, moreResults) = splitAt limit (drop offset pkgnames)
 
             pkgDetails <-
               case sorttype of
                 Just "alpha"  -> liftIO $ makeItemListA pageResults
                 Just "pop"    -> liftIO $ makeItemListP pageResults
-                _          -> liftIO $ makeItemList  pageResults
+                _             -> liftIO $ makeItemList  pageResults
 
             let pkgsMatchingTags = case tagRestriction of
-                  Just t ->
-                    [pk | pk <- pkgDetails, (Tag t) `member` (itemTags pk)]
-                  _ ->
-                    pkgDetails
+                  Just "any"  -> pkgDetails
+                  Just t      -> [pk | pk <- pkgDetails, (Tag t) `member` (itemTags pk)]
+                  _           -> pkgDetails
 
             return $ toResponse $ Resource.XHtml $
               hackagePage "Package search" $
                 [ toHtml $ searchForm termsStr False tagRestriction sorttype alltags
-                , toHtml $ resultsArea pkgIndex currentTime pkgsMatchingTags offset limit moreResults termsStr
+                , toHtml $ resultsArea pkgIndex currentTime pkgsMatchingTags offset limit moreResults termsStr totalNumResults
                 , alternativeSearch
                 ]
 
@@ -1553,26 +1553,28 @@ mkHtmlSearch HtmlUtilities{..}
                 , alternativeSearch
                 ]
       where
-        resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr =
+        resultsArea pkgIndex currentTime pkgDetails offset limit moreResults termsStr totalNumResults =
           thediv ! [theclass "results-section"] <<
             [ h2 << "Results"
-            , paragraph << ("(" ++
-                case (length pkgDetails) of
-                  0 -> show (fst range)
-                  _ -> show (fst range + 1)
-                ++ " to " ++ show (snd range) ++ ")"
-                ++ " of " ++ show (length pkgDetails))
             , case pkgDetails of
-                []  | offset == 0 -> toHtml "None"
+                []  | offset == 0 -> toHtml "No packages found."
                     | otherwise   -> toHtml "No more results"
-                _ ->  toHtml
-                      [ table ! [theclass "search-results-table"] <<
+                _ ->  toHtml $
+                      paragraph ! [theclass "alignleft"] << (show totalNumResults ++
+                      " packages found. Showing results (" ++
+                        case (length pkgDetails) of
+                          0 -> show (fst range)
+                          _ -> show (fst range + 1)
+                        ++ " to " ++ show (snd range) ++ ")"
+                        ++ " of " ++ show (totalNumResults))
+                      +++ paragraph ! [theclass "alignright"] << (
+                        if null moreResults
+                          then noHtml
+                          else anchor ! [href moreResultsLink] << "More results...")
+                      +++ [ table ! [theclass "search-results-table"] <<
                         [ thead ! [theclass "search-results-header"] << resultsHeader
                         , tbody << map customRender pkgDetails
                         ]
-                      , if null moreResults
-                          then noHtml
-                          else anchor ! [href moreResultsLink] << "More results..."
                       ]
             ]
           where
@@ -1626,9 +1628,10 @@ mkHtmlSearch HtmlUtilities{..}
                   [ thediv <<
                       [ label   ! [thefor     "tag_form"] << "Tag"
                       , select  ! [identifier "tag_form", name "tag"] <<
-                      (zipWith (genOption tagRestriction)
-                        (map (display . fst) allTags)
-                        (map (display . fst) allTags))
+                      (option ! [value "any"] << "Any" :
+                        zipWith (genOption tagRestriction)
+                          (map (display . fst) allTags)
+                          (map (display . fst) allTags))
                       ]
                   , thediv <<
                       [ label ! [thefor "terms"] << "Terms"
