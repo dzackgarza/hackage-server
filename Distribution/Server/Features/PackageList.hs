@@ -17,6 +17,7 @@ import Distribution.Server.Features.PreferredVersions
 import Distribution.Server.Features.Ranking
 
 import qualified Distribution.Server.Packages.PackageIndex as PackageIndex
+import Distribution.Server.Pages.Index
 import Distribution.Server.Util.CountingMap (cmFind)
 
 import Distribution.Server.Packages.Types
@@ -78,19 +79,21 @@ data PackageItem = PackageItem {
   --itemHotness :: Int
     -- How many stars a package has received.
     , itemNumStars :: !Int
+    -- Which categories the package is included in.
+    , itemCategories :: ![Category]
 }
 
 sortByStars :: [PackageItem] -> [PackageItem]
 sortByStars = sortBy (comparing itemNumStars)
 
 instance MemSize PackageItem where
-    memSize (PackageItem a b c d e f g h) = memSize8 a b c d e f g h
+    memSize (PackageItem a b c d e f g h i) = memSize9 a b c d e f g h i
 
 
 emptyPackageItem :: PackageName -> PackageItem
 emptyPackageItem pkg = PackageItem pkg Set.empty Nothing "" 0
                                    -- [reverse index disabled] 0
-                                   False 0 0
+                                   False 0 0 []
 
 
 initListFeature :: ServerEnv
@@ -224,13 +227,24 @@ listFeature CoreFeature{..}
         tags  <- queryTagsForPackage pkgname
         downs <- recentPackageDownloads
         deprs <- queryGetDeprecatedFor pkgname
+
+        -- Get number of stars this packge has from database.
         stars <- pkgNumStars pkgname
+
+        -- Get package's categories. (TODO: Store categories in memory?)
+        index <- queryGetPackageIndex
+        let catmap = catsToMap $ packageCategories index
+            cats = Map.lookup pkgname catmap
+
         return $ (,) pkgname $ (updateDescriptionItem (pkgDesc pkg) $ emptyPackageItem pkgname) {
             itemTags       = tags
           , itemDeprecated = deprs
           , itemDownloads  = cmFind pkgname downs
             -- [reverse index disabled] , itemRevDepsCount = directReverseCount revCount
           , itemNumStars = stars
+          , itemCategories = case cats of
+              Just c -> c
+              _   -> []
           }
 
     ------------------------------

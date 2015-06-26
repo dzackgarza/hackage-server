@@ -1560,8 +1560,8 @@ mkHtmlSearch HtmlUtilities{..}
             , case pageResults of
                 []  | offset == 0 -> toHtml "No packages found."
                     | otherwise   -> toHtml "No more results"
-                _ ->  toHtml $
-                      paragraph ! [theclass "alignleft"] << (show totalNumResults ++
+                _ ->  toHtml $ thediv ! [theclass "results-summary"] <<
+                      (paragraph ! [theclass "alignleft"] << (show totalNumResults ++
                       " packages found. Showing results (" ++
                         case (length pageResults) of
                           0 -> show (fst range)
@@ -1569,7 +1569,7 @@ mkHtmlSearch HtmlUtilities{..}
                         ++ " to " ++ show (snd range) ++ ")"
                         ++ " of " ++ show (totalNumResults) ++ ". ")
                       +++ paragraph ! [theclass "alignright"] << (
-                        showCurrentPage +++ showPagination)
+                        showPagination))
                       +++ [ table ! [theclass "search-results-table"] <<
                         [ thead ! [theclass "search-results-header"] << tableHeader
                         , tbody << map customRender pageResults
@@ -1577,24 +1577,33 @@ mkHtmlSearch HtmlUtilities{..}
                       ]
             ]
           where
-            showPagination =
+            nextLink =
               if null moreResults
                 then noHtml
                 else
                   anchor ! [href moreResultsLink] << "Next >"
 
-            showCurrentPage =
-              "Page " ++ show currentPage ++ " of " ++ show numPages
+            prevLink =
+              if currentPage == 1
+                then noHtml
+                else
+                  anchor ! [href prevResultsLink] << "< Previous"
+
+            showPagination =
+              prevLink
+              +++ " Page " ++ show currentPage ++ " of " ++ show numPages ++ ". "
+              +++ nextLink
               where
                 numPages :: Integer
                 numPages =
                   ceiling $ toRational totalNumResults / toRational limit
 
-                currentPage :: Integer
-                currentPage =
-                  (toInteger offset `div` toInteger limit) + 1
+            currentPage :: Integer
+            currentPage =
+              (toInteger offset `div` toInteger limit) + 1
 
             tableHeader = [ th << "Tags"
+                          , th << "Categories"
                           , th << "Type"
                           , th << "Name"
                           , th << "Stars"
@@ -1606,6 +1615,7 @@ mkHtmlSearch HtmlUtilities{..}
             customRender item =
               tr <<
                 [ td << toHtml (renderTags (itemTags item))
+                , td << toHtml (show (itemCategories item))
                 , td << ptype (itemHasLibrary item) (itemNumExecutables item)
                 , td << packageNameLink pkgname
                 , td << toHtml (show ( itemNumStars item))
@@ -1630,10 +1640,23 @@ mkHtmlSearch HtmlUtilities{..}
                   _ -> ["deprecated"])
 
             range = (offset, offset + length pageResults)
+
             moreResultsLink =
                 "/packages/search?"
              ++ "terms="   ++ escapeURIString isUnreserved termsStr
              ++ "&offset=" ++ show (offset + limit)
+             ++ "&limit="  ++ show limit
+             ++ case sortType of
+               Just s  -> "&sort="  ++ escapeURIString isUnreserved s
+               Nothing -> ""
+             ++ case tagRestriction of
+               Just t -> "&tag="    ++ escapeURIString isUnreserved t
+               Nothing -> ""
+
+            prevResultsLink =
+                "/packages/search?"
+             ++ "terms="   ++ escapeURIString isUnreserved termsStr
+             ++ "&offset=" ++ show (offset - limit)
              ++ "&limit="  ++ show limit
              ++ case sortType of
                Just s  -> "&sort="  ++ escapeURIString isUnreserved s
@@ -1709,7 +1732,7 @@ mkHtmlSearch HtmlUtilities{..}
                   << text
 
         alternativeSearch =
-          paragraph <<
+          paragraph ! [theclass "footer-ext-links"] <<
             [ toHtml "Alternatively, if you are looking for a particular function then try "
             , anchor ! [href "http://holumbus.fh-wedel.de/hayoo/hayoo.html"] << "Hayoo"
             , toHtml " or "

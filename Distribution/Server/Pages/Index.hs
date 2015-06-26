@@ -1,6 +1,10 @@
 -- Generate an HTML page listing all available packages
 
-module Distribution.Server.Pages.Index (packageIndex) where
+module Distribution.Server.Pages.Index
+  ( Category
+  , packageIndex
+  , packageCategories
+  , catsToMap) where
 
 import Distribution.Server.Pages.Template       ( hackagePage )
 
@@ -20,6 +24,8 @@ import qualified Text.XHtml.Strict as XHtml ( name )
 import Data.Char (toLower, toUpper, isSpace)
 import Data.List (intersperse, sortBy, groupBy, nub, maximumBy)
 
+import qualified Data.Map as Map
+import Distribution.Server.Framework.MemSize
 
 packageIndex :: PackageIndex.PackageIndex PkgInfo -> Html
 packageIndex = formatPkgGroups
@@ -47,13 +53,43 @@ mkPackageIndexInfo pd = PackageIndexInfo {
                         }
 
 data Category = Category String | NoCategory
-        deriving (Eq, Ord, Show)
+        deriving (Eq, Ord)
+
+instance MemSize Category where
+  memSize (Category a)  = memSize1 a
+  memSize NoCategory    = memSize1 ""
+
+instance Show Category where
+  show (Category a)   = a
+  show NoCategory     = "Unclassified"
+
+{-packageCategories :: PackageIndex.PackageIndex PkgInfo -> [PackageIndexInfo]-}
+{-packageCategories pkgs = cat_pkgs-}
+  {-where-}
+    {-cat_pkgs = groupOnFstBy normalizeCategory $-}
+      {-[(cat, pkg) | pkg <- pkgs, cat <- pii_categories pkg]-}
+
+packageCategories :: PackageIndex.PackageIndex PkgInfo -> [PackageIndexInfo]
+packageCategories =
+  map (mkPackageIndexInfo
+    . flattenPackageDescription
+    . pkgDesc
+    . maximumBy (comparing packageVersion))
+  . (PackageIndex.allPackagesByName )
+
+catsToMap :: [PackageIndexInfo] -> Map.Map PackageName [Category]
+catsToMap allIndexInfo =
+  let thelist = [(pii_pkgName p, pii_categories p) | p <- allIndexInfo]
+  in Map.fromList thelist
+
+
+
 
 -- Packages, grouped by category and ordered by name with each category.
 formatPkgGroups :: [PackageIndexInfo] -> Html
 formatPkgGroups pkgs = hackagePage "packages by category" docBody
   where docBody =
-                (h2 << "Packages by Category") :
+                (h2 << "Packages by category") :
                 -- table of contents
                 paragraph ! [theclass "toc"] <<
                         (bold << "Categories:" : toHtml " " :

@@ -716,6 +716,10 @@ ul.directory-list {
   padding: .3em 1em .3em 3px;
 }
 
+.results-summary {
+  font-size: .8em;
+}
+
 .parameter-section {
   background: gainsboro;
   margin: 0;
@@ -743,4 +747,8 @@ fieldset {
 
 .alignright {
   float: right;
+}
+
+.footer-ext-links {
+  text-align: center;
 }
