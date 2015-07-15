@@ -487,6 +487,11 @@ coreFeature ServerEnv{serverBlobStore = store} UserFeature{..}
         Just pkg -> return pkg
         _ -> packageError [MText $ "No such package version for " ++ display (packageName pkgid)]
 
+    lookupLatestPackage :: PackageId -> ServerPartE PkgInfo
+    lookupLatestPackage (PackageIdentifier name (Version a b)) = do
+      pkgs <- lookupPackageName name
+      -- pkgs is sorted by version number and non-empty
+      return (last pkgs)
     ------------------------------------------------------------------------
 
     servePackagesIndex :: DynamicPath -> ServerPartE Response

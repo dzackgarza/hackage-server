@@ -69,6 +69,7 @@ data PackageItem = PackageItem {
     itemNumExecutables :: !Int
     -- Hotness: a more heuristic way to sort packages. presently non-existent.
   --itemHotness :: Int
+    itemLatestVersion :: Version
 }
 
 instance MemSize PackageItem where
@@ -198,6 +199,7 @@ listFeature CoreFeature{..}
         tags  <- queryTagsForPackage pkgname
         downs <- recentPackageDownloads
         deprs <- queryGetDeprecatedFor pkgname
+        vers <- showVersion . pkgVersion . pkgInfoId $ pkg
         return $ (,) pkgname $ (updateDescriptionItem (pkgDesc pkg) $ emptyPackageItem pkgname) {
             itemTags       = tags
           , itemDeprecated = deprs
