@@ -30,6 +30,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Data.Version (showVersion)
 
 data ListFeature = ListFeature {
     listFeatureInterface :: HackageFeature,
@@ -66,20 +67,22 @@ data PackageItem = PackageItem {
     -- Whether there's a library here.
     itemHasLibrary :: !Bool,
     -- How many executables (>=0) this package has.
-    itemNumExecutables :: !Int
+    itemNumExecutables :: !Int,
     -- Hotness: a more heuristic way to sort packages. presently non-existent.
   --itemHotness :: Int
-    itemLatestVersion :: Version
+    itemLatestVersion :: !String
 }
 
 instance MemSize PackageItem where
-    memSize (PackageItem a b c d e f g) = memSize7 a b c d e f g
+    memSize (PackageItem a b c d e f g h) =
+      memSize7 a b c d e f g +
+      memSize1 h
 
 
 emptyPackageItem :: PackageName -> PackageItem
 emptyPackageItem pkg = PackageItem pkg Set.empty Nothing "" 0
                                    -- [reverse index disabled] 0
-                                   False 0
+                                   False 0 ""
 
 
 initListFeature :: ServerEnv
@@ -142,10 +145,13 @@ listFeature CoreFeature{..}
   = (ListFeature{..}, modifyItem, updateDesc)
   where
     listFeatureInterface = (emptyHackageFeature "list") {
-        featurePostInit = do itemsCache
-                             void $ forkIO periodicDownloadRefresh
-      , featureState    = []
-      , featureCaches   = [
+        featurePostInit   = do
+          itemsCache
+          void $ forkIO periodicDownloadRefresh
+      , featureResources  = [ latestVersionResource
+                            ]
+      , featureState      = []
+      , featureCaches     = [
             CacheComponent {
               cacheDesc       = "per-package-name summary info",
               getCacheMemSize = memSize <$> readMemState itemCache
@@ -159,6 +165,17 @@ listFeature CoreFeature{..}
                 --FIXME: don't do this if nothing has changed!
                 threadDelay (30 * 60 * 1000000) -- 30 minutes
                 refreshDownloads
+
+    latestVersionResource :: Resource
+    latestVersionResource = (resourceAt "/package/:package/latestversion.:format") {
+      resourceDesc  = [(GET,    "Returns the latest version of a package.")]
+    , resourceGet   = [("json", serveLatestVersionGet)]
+    }
+
+    serveLatestVersionGet :: DynamicPath -> ServerPartE Response
+    serveLatestVersionGet dpath = do
+      ok . toResponse $ "ok"
+
 
     modifyItem pkgname token = do
         hasItem <- fmap (Map.member pkgname) $ readMemState itemCache
@@ -199,11 +216,13 @@ listFeature CoreFeature{..}
         tags  <- queryTagsForPackage pkgname
         downs <- recentPackageDownloads
         deprs <- queryGetDeprecatedFor pkgname
-        vers <- showVersion . pkgVersion . pkgInfoId $ pkg
+        {-vers <- showVersion . pkgVersion . pkgInfoId $ pkg-}
+        let vers = showVersion . pkgVersion . pkgInfoId $ pkg
         return $ (,) pkgname $ (updateDescriptionItem (pkgDesc pkg) $ emptyPackageItem pkgname) {
             itemTags       = tags
           , itemDeprecated = deprs
           , itemDownloads  = cmFind pkgname downs
+          , itemLatestVersion = vers
             -- [reverse index disabled] , itemRevDepsCount = directReverseCount revCount
           }
 
