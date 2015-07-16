@@ -139,17 +139,17 @@ listFeature :: CoreFeature
                 PackageName -> (PackageItem -> PackageItem) -> IO (),
                 PackageName -> IO ())
 
-listFeature CoreFeature{..}
+listFeature CoreFeature {
+              coreResource = CoreResource{..}
+            , queryGetPackageIndex
+            }
             DownloadFeature{..} TagsFeature{..} VersionsFeature{..}
             itemCache itemUpdate
   = (ListFeature{..}, modifyItem, updateDesc)
   where
     listFeatureInterface = (emptyHackageFeature "list") {
-        featurePostInit   = do
-          itemsCache
-          void $ forkIO periodicDownloadRefresh
-      , featureResources  = [ latestVersionResource
-                            ]
+        featurePostInit   = doInit
+      , featureResources  = [ latestVersionResource ]
       , featureState      = []
       , featureCaches     = [
             CacheComponent {
@@ -158,13 +158,17 @@ listFeature CoreFeature{..}
             }
           ]
       }
-      where itemsCache = do
-                items <- constructItemIndex
-                writeMemState itemCache items
-            periodicDownloadRefresh = forever $ do
-                --FIXME: don't do this if nothing has changed!
-                threadDelay (30 * 60 * 1000000) -- 30 minutes
-                refreshDownloads
+      where
+        doInit = do
+          itemsCache
+          void $ forkIO periodicDownloadRefresh
+        itemsCache = do
+          items <- constructItemIndex
+          writeMemState itemCache items
+        periodicDownloadRefresh = forever $ do
+          --FIXME: don't do this if nothing has changed!
+          threadDelay (30 * 60 * 1000000) -- 30 minutes
+          refreshDownloads
 
     latestVersionResource :: Resource
     latestVersionResource = (resourceAt "/package/:package/latestversion.:format") {
@@ -174,7 +178,17 @@ listFeature CoreFeature{..}
 
     serveLatestVersionGet :: DynamicPath -> ServerPartE Response
     serveLatestVersionGet dpath = do
-      ok . toResponse $ "ok"
+      pkgname <- packageInPath dpath
+      guardValidPackageName pkgname
+
+      hasItem <- fmap (Map.member pkgname) $ readMemState itemCache
+
+      if hasItem
+        then do
+          pkgitem <- fmap (Map.! pkgname) $ readMemState itemCache
+          ok . toResponse $ itemLatestVersion $ pkgitem
+        else
+          ok . toResponse $ "Package not found."
 
 
     modifyItem pkgname token = do
@@ -187,6 +201,7 @@ listFeature CoreFeature{..}
                 case pkgs of
                     [] -> return () --this shouldn't happen
                     _  -> modifyMemState itemCache . uncurry Map.insert =<< constructItem (last pkgs)
+
     updateDesc pkgname = do
         index <- queryGetPackageIndex
         let pkgs = PackageIndex.lookupPackageName index pkgname
@@ -216,8 +231,15 @@ listFeature CoreFeature{..}
         tags  <- queryTagsForPackage pkgname
         downs <- recentPackageDownloads
         deprs <- queryGetDeprecatedFor pkgname
-        {-vers <- showVersion . pkgVersion . pkgInfoId $ pkg-}
-        let vers = showVersion . pkgVersion . pkgInfoId $ pkg
+
+        let pkgs = lookupPackageName $ lookupPackageName (PackageName pkgname)
+        let vers = "1.1.1."
+        {-let latestpkg = last pkgs-}
+            {-vers = showVersion . pkgVersion . pkgInfoId $ latestpkg-}
+        {-let latestpkg = PackageIndex.lookupLatestPackage $-}
+              {-pkgInfoId pkg-}
+        {-vers <- showVersion . pkgVersion . pkgInfoId $ latestpkg-}
+
         return $ (,) pkgname $ (updateDescriptionItem (pkgDesc pkg) $ emptyPackageItem pkgname) {
             itemTags       = tags
           , itemDeprecated = deprs
