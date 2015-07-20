@@ -10,7 +10,7 @@ html {
 }
 
 body {
-  background: white;
+  background: #EEE;
   color: black;
   text-align: left;
   min-height: 100%;
@@ -178,11 +178,6 @@ pre {
 
 /* @group Page Structure */
 
-#content {
-  margin: 0 auto;
-  padding: 0 2em 6em;
-  max-width: 60em;
-}
 
 #page-header {
   background: rgb(41,56,69);
@@ -692,4 +687,62 @@ ul.directory-list {
 
 .unpreferred {
     color:#308014 !important;
+}
+
+
+/* New Package Page */
+
+#content {
+  margin: 1em 1em 1em 1em;
+  padding: 1em 1em 1em 1em;
+  background: greenyellow;
+}
+
+.content-wrap {
+  width: 66%;
+  background: white;
+  float: left;
+  display: inline-flex;
+}
+
+.sidebar {
+  width: 33%;
+  float: right;
+  background: aqua;
+}
+
+.install {
+  padding: 0% 2% 0% 2%;
+  background: white;
+  box-shadow: 0 0 5px #AAAAAA;
+}
+
+#install-header {
+  float: left;
+}
+
+#install-cabal {
+  font-size; 1.4em;
+  font-family: Courier New, monospace;
+  line-height: 1em;
+  float: left;
+}
+
+#license {
+  float: right;
+  margin: 1% 1% 0 0;
+  font-size: 0.8em;
+  padding-bottom: 6%;
+}
+
+.clear-div {
+  clear:both;
+}
+
+#install-distros span {
+  font-weight: bold;
+}
+
+#install-other {
+  font-size: 0.9em;
 }

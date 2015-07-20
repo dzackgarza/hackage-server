@@ -41,6 +41,7 @@ import Distribution.Server.Features.Distro.Distributions (DistroPackageInfo(..))
 -- [reverse index disabled] import Distribution.Server.Packages.Reverse
 
 import qualified Distribution.Server.Pages.Package as Pages
+import qualified Distribution.Server.Pages.PackageNew as PagesNew
 import Distribution.Server.Pages.Template
 import Distribution.Server.Pages.Util
 import qualified Distribution.Server.Pages.Group as Pages
@@ -580,7 +581,7 @@ mkHtmlCore HtmlUtilities{..}
 
         -- and put it all together
         return $ toResponse $ Resource.XHtml $
-            Pages.packagePage render [tagLinks] [deprHtml]
+            PagesNew.packagePage' render [tagLinks] [deprHtml]
                               (beforeHtml ++ middleHtml ++ afterHtml
                                 ++ buildStatusHtml)
                               [] mdocIndex mreadme docURL False
