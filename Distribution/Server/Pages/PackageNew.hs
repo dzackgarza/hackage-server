@@ -131,6 +131,37 @@ packagePage' render headLinks top sections
                     ]
                   ]
                 ]
+
+              , thediv ! [theclass "sidebar-box properties"] <<
+                [ h3 << "Properties"
+                , table << tbody <<
+                  [ tr <<
+                    [ th << "Changelog"
+                    , td << anchor ! [href "#"] << "CHANGELOG"
+                    ]
+                  , tr <<
+                    [ th << "Copyright"
+                    , td << "Copyright (C) 2012-2015 Edward A. Kmett"
+                    ]
+                  , tr <<
+                    [ th << "Author"
+                    , td << anchor ! [href "mailto:ekmett@gmail.com"] <<
+                      "Edward A. Kmett"
+                    ]
+                  , tr <<
+                    [ th << "Maintainer"
+                    , td << ("Edward A. Kmett"
+                        +++ " <" +++
+                        anchor ! [href "mailto:ekmett@gmail.com"] <<
+                          "ekmett@gmail.com"
+                        +++ ">")
+                    ]
+                  , tr <<
+                    [ th << "Stability"
+                    , td << "Provisional"
+                    ]
+                  ]
+                ]
               ]
           ]
 

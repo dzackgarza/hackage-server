@@ -761,3 +761,11 @@ ul.directory-list {
   padding-bottom: 2%;
   margin: 0 0 0 0;
 }
+
+.properties {
+  font-size: 10px;
+}
+
+.properties td {
+  padding: 0px 3em;
+}
