@@ -267,7 +267,7 @@ div#style-menu-holder {
   padding: 0.5em 0;
   color: #666;
   text-align: center;
-  position: absolute;
+  /*position: absolute;*/
   bottom: 0;
   width: 100%;
   height: 3em;
@@ -696,6 +696,7 @@ ul.directory-list {
   margin: 1em 1em 1em 1em;
   padding: 1em 1em 1em 1em;
   background: greenyellow;
+  overflow: overlay;
 }
 
 .content-wrap {
@@ -717,20 +718,23 @@ ul.directory-list {
   box-shadow: 0 0 5px #AAAAAA;
 }
 
+.sidebar-box {
+  padding: 0% 2% 0% 2%;
+  background: white;
+  box-shadow: 0 0 5px #AAAAAA;
+}
+
 #install-header {
   float: left;
 }
 
 #install-cabal {
-  font-size; 1.4em;
-  font-family: Courier New, monospace;
-  line-height: 1em;
-  float: left;
+  clear: both;
 }
 
 #license {
   float: right;
-  margin: 1% 1% 0 0;
+  margin: 3% 1% 0 0;
   font-size: 0.8em;
   padding-bottom: 6%;
 }
@@ -739,10 +743,21 @@ ul.directory-list {
   clear:both;
 }
 
+#install-distros {
+  font-size: 0.9em;
+}
+
 #install-distros span {
   font-weight: bold;
 }
 
 #install-other {
   font-size: 0.9em;
+}
+
+.links ul {
+  overflow: auto;
+  list-style: none;
+  padding-bottom: 2%;
+  margin: 0 0 0 0;
 }

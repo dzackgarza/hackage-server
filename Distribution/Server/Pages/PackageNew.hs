@@ -80,11 +80,11 @@ packagePage' render headLinks top sections
       where
         sidebar =
           [ thediv ! [theclass "sidebar"] <<
-              thediv ! [theclass "install"] <<
+              [ thediv ! [theclass "sidebar-box"] <<
                 [ h3 ! [identifier "install-header"] << "Install"
                 , paragraph ! [identifier "license"] <<
                   "License : BSD3"
-                , paragraph ! [identifier "install-cabal"] <<
+                , pre ! [identifier "install-cabal"] << thecode <<
                   ("> cabal install " ++ pkgName)
                 , thediv ! [theclass "clear-div"] << noHtml
                 , paragraph ! [identifier "install-distros"] <<
@@ -100,6 +100,38 @@ packagePage' render headLinks top sections
                   , anchor ! [href "#"] << "Haddocks"
                   ]
                 ]
+
+              , thediv ! [theclass "sidebar-box links"] <<
+                [ ulist ! [identifier "information-links"] <<
+                  [ li <<
+                    [ h3 << "Homepage"
+                    , paragraph <<
+                      anchor ! [href "#"] << "http://wiki.portal.chalmers.se/agda/"
+                    ]
+                  , li <<
+                    [ h3 << "Bug Reports"
+                    , paragraph <<
+                      anchor ! [href "#"] << "http://code.google.com/p/agda/issues/list"
+                    ]
+                  , li <<
+                    [ h3 << "Source Repository"
+                    , paragraph <<
+                      anchor ! [href "#"] << "https://github.com/agda/agda"
+                    ]
+                  , li << hr
+                  , li <<
+                    [ h3 << "Categories"
+                    , paragraph <<
+                      [ anchor ! [href "#"] << "Data"
+                      , toHtml ", "
+                      , anchor ! [href "#"] << "Lenses"
+                      , toHtml ", "
+                      , anchor ! [href "#"] << "Generics"
+                      ]
+                    ]
+                  ]
+                ]
+              ]
           ]
 
         {-[ allVersions-}
