@@ -73,111 +73,141 @@ packagePage' render headLinks top sections
 
     docTitle = pkgName
     docSubtitle = toHtml $ "Hackage :: " ++ pkgName
-    docBody = thediv ! [theclass "content-wrap"] <<
-      h1 << (pkgName ++ ": " ++ pkgVer) : concat
-        [ sidebar
+
+    docBody :: [Html]
+    docBody =
+      [ thediv ! [theclass "content-wrap"] <<
+        [ contentHeader
+        , contentBody
         ]
+      , thediv ! [theclass "sidebar"] <<
+        [ installBox
+        , linksBox
+        , propertiesBox
+        ]
+      ]
       where
-        sidebar =
-          [ thediv ! [theclass "sidebar"] <<
-              [ thediv ! [theclass "sidebar-box"] <<
-                [ h3 ! [identifier "install-header"] << "Install"
-                , paragraph ! [identifier "license"] <<
-                  "License : BSD3"
-                , pre ! [identifier "install-cabal"] << thecode <<
-                  ("> cabal install " ++ pkgName)
-                , thediv ! [theclass "clear-div"] << noHtml
-                , paragraph ! [identifier "install-distros"] <<
-                  [ thespan << "Distributions"
-                  , br
-                  , toHtml $ "Debian (2.2.6) | Arch (2.2.7)"
-                  ]
-                , paragraph ! [identifier "install-other"] <<
-                  [ anchor ! [href "#"] << "Source Tarball"
-                  , toHtml " | "
-                  , anchor ! [href "#"] << "Package Description"
-                  , toHtml " | "
-                  , anchor ! [href "#"] << "Haddocks"
-                  ]
-                ]
-
-              , thediv ! [theclass "sidebar-box links"] <<
-                [ ulist ! [identifier "information-links"] <<
-                  [ li <<
-                    [ h3 << "Homepage"
-                    , paragraph <<
-                      anchor ! [href "#"] << "http://wiki.portal.chalmers.se/agda/"
-                    ]
-                  , li <<
-                    [ h3 << "Bug Reports"
-                    , paragraph <<
-                      anchor ! [href "#"] << "http://code.google.com/p/agda/issues/list"
-                    ]
-                  , li <<
-                    [ h3 << "Source Repository"
-                    , paragraph <<
-                      anchor ! [href "#"] << "https://github.com/agda/agda"
-                    ]
-                  , li << hr
-                  , li <<
-                    [ h3 << "Categories"
-                    , paragraph <<
-                      [ anchor ! [href "#"] << "Data"
-                      , toHtml ", "
-                      , anchor ! [href "#"] << "Lenses"
-                      , toHtml ", "
-                      , anchor ! [href "#"] << "Generics"
-                      ]
-                    ]
-                  ]
-                ]
-
-              , thediv ! [theclass "sidebar-box properties"] <<
-                [ h3 << "Properties"
-                , table << tbody <<
-                  [ tr <<
-                    [ th << "Changelog"
-                    , td << anchor ! [href "#"] << "CHANGELOG"
-                    ]
-                  , tr <<
-                    [ th << "Copyright"
-                    , td << "Copyright (C) 2012-2015 Edward A. Kmett"
-                    ]
-                  , tr <<
-                    [ th << "Author"
-                    , td << anchor ! [href "mailto:ekmett@gmail.com"] <<
-                      "Edward A. Kmett"
-                    ]
-                  , tr <<
-                    [ th << "Maintainer"
-                    , td << ("Edward A. Kmett"
-                        +++ " <" +++
-                        anchor ! [href "mailto:ekmett@gmail.com"] <<
-                          "ekmett@gmail.com"
-                        +++ ">")
-                    ]
-                  , tr <<
-                    [ th << "Stability"
-                    , td << "Provisional"
-                    ]
-                  ]
-                ]
+        contentHeader :: Html
+        contentHeader = thediv ! [identifier "content-header"] <<
+          [ h1 ! [identifier "package-name"] << (pkgName ++ " " ++ pkgVer)
+          , thediv ! [identifier "version-info"] <<
+            [ ulist <<
+              [ li << anchor ! [href "#"] << "2.2.6"
+              , li << anchor ! [href "#"] << "2.2.4"
+              , li << anchor ! [href "#"] << "2.2.2"
+              , li << anchor ! [href "#"] << "2.20"
+              , li << "..."
               ]
+            , thespan << anchor ! [href "#"] << "View All Versions >>"
+            ]
+          , thespan ! [identifier "current-version"] <<
+            ("Current Version: " ++ "2.2.6")
+          , br
+          , thespan ! [identifier "last-update"] <<
+            ("Last Update: " ++ "2015-05-29 UTC")
           ]
 
-        {-[ allVersions-}
-        {-, currentVersionInfo-}
-        {-, summarySection-}
-        {-, skipToReadme-}
-        {-, tagSection-}
-        {-, descriptionExpander $ pkgDescription-}
-        {-, installSection-}
-        {-, linkSection-}
-        {-, propertySection-}
-        {-, modules-}
-        {-, dependencies-}
-        {-, readmeSection-}
-        {-]-}
+        contentBody :: Html
+        contentBody = thediv ! [identifier "content-body"] <<
+          [ paragraph ! [identifier "synopsis"] <<
+            "A dependently typed functional programming language and proof assistant."
+          , anchor ! [identifier "skip-to-readme", href "readme"] <<
+            "[Skip to Readme]"
+          , thediv ! [identifier "tags"] <<
+            [ h3 << "Tags: "
+            , ulist <<
+              [ li << "library"
+              , li << "program"
+              , li << "dependent-types"
+              ]
+            ]
+          ]
+
+        installBox :: Html
+        installBox = thediv ! [theclass "sidebar-box"] <<
+          [ h3 ! [identifier "install-header"] << "Install"
+          , paragraph ! [identifier "license"] <<
+            "License : BSD3"
+          , pre ! [identifier "install-cabal"] << thecode <<
+            ("> cabal install " ++ pkgName)
+          , thediv ! [theclass "clear-div"] << noHtml
+          , paragraph ! [identifier "install-distros"] <<
+            [ thespan << "Distributions"
+            , br
+            , toHtml $ "Debian (2.2.6) | Arch (2.2.7)"
+            ]
+          , paragraph ! [identifier "install-other"] <<
+            intersperse (toHtml " | ")
+            [ anchor ! [href "#"] << "Source Tarball"
+            , anchor ! [href "#"] << "Package Description"
+            , anchor ! [href "#"] << "Haddocks"
+            ]
+          ]
+
+        linksBox :: Html
+        linksBox = thediv ! [theclass "sidebar-box links"] <<
+          [ ulist ! [identifier "information-links"] <<
+            [ li <<
+              [ h3 << "Homepage"
+              , paragraph <<
+                anchor ! [href "#"] << "http://wiki.portal.chalmers.se/agda/"
+              ]
+            , li <<
+              [ h3 << "Bug Reports"
+              , paragraph <<
+                anchor ! [href "#"] << "http://code.google.com/p/agda/issues/list"
+              ]
+            , li <<
+              [ h3 << "Source Repository"
+              , paragraph <<
+                anchor ! [href "#"] << "https://github.com/agda/agda"
+              ]
+            , li << hr
+            , li <<
+              [ h3 << "Categories"
+              , paragraph <<
+                [ anchor ! [href "#"] << "Data"
+                , toHtml ", "
+                , anchor ! [href "#"] << "Lenses"
+                , toHtml ", "
+                , anchor ! [href "#"] << "Generics"
+                ]
+              ]
+            ]
+          ]
+
+        propertiesBox :: Html
+        propertiesBox = thediv ! [theclass "sidebar-box properties"] <<
+          [ h3 << "Properties"
+          , table << tbody <<
+            [ tr <<
+              [ th << "Changelog"
+              , td << anchor ! [href "#"] << "CHANGELOG"
+              ]
+            , tr <<
+              [ th << "Copyright"
+              , td << "Copyright (C) 2012-2015 Edward A. Kmett"
+              ]
+            , tr <<
+              [ th << "Author"
+              , td << anchor ! [href "mailto:ekmett@gmail.com"] <<
+                "Edward A. Kmett"
+              ]
+            , tr <<
+              [ th << "Maintainer"
+              , td << ("Edward A. Kmett"
+                  +++ " <" +++
+                  anchor ! [href "mailto:ekmett@gmail.com"] <<
+                    "ekmett@gmail.com"
+                  +++ ">")
+              ]
+            , tr <<
+              [ th << "Stability"
+              , td << "Provisional"
+              ]
+            ]
+          ]
+
 
 
 packagePage :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
