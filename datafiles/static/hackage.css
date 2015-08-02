@@ -818,9 +818,16 @@ ul.directory-list {
   overflow: auto;
 }
 
+#skip-to-readme {
+  float: left;
+  clear: both;
+}
+
 #tags {
-  width:100%;
+  width:60%;
   display: inline-flex;
+  float: left;
+  clear: both;
 }
 
 #tags ul {
@@ -838,3 +845,73 @@ ul.directory-list {
   text-align: center;
   border-radius: .3em;
 }
+
+.checkmark {
+  display: none;
+}
+
+.toggle-box + label span:before {
+  content: "+";
+  margin-right: 10px;
+}
+
+.toggle-box + label span:after {
+  content: "Expand Description";
+}
+
+.desc .read-more {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  margin: 0; padding: 30px 0;
+}
+
+.toggle-box + label + div.desc > .read-more {
+    background-image: linear-gradient(to bottom, transparent, white);
+}
+
+.toggle-box:checked + label + div.desc > .read-more {
+  background-image:none;
+  background:transparent;
+}
+
+.toggle-box:checked + label span:before {
+  content: "-";
+  margin-right: 10px;
+}
+
+.toggle-box:checked + label span:after {
+  content: "Collapse Description";
+}
+
+.toggle-box + label + div {
+  max-height: 128px;
+  overflow:hidden;
+  -webkit-transition: max-height 1.0s cubic-bezier(.8,.34,.55,1);
+  -moz-transition: max-height 1.0s cubic-bezier(.8,.34,.55,1);
+  transition: max-height 1.0s cubic-bezier(.8,.34,.55,1);
+}
+
+.toggle-box:checked + label + div {
+  max-height: 4000px;
+}
+
+.toggle-box {
+  float:right;
+  clear:both;
+  color:red;
+  background: rgba(240,240,240,1);
+  border-radius: 6px;
+  padding: 3px;
+  cursor: pointer;
+  font-weight: bold;
+  line-height: 10px;
+}
+
+.desc {
+    clear: both;
+    padding-top: 1px;
+    position: relative;
+}
+
