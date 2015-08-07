@@ -915,3 +915,14 @@ ul.directory-list {
     position: relative;
 }
 
+#more-information {
+  border-top: black 1px solid;
+}
+
+#modules {
+  float:left;
+}
+
+#dependencies {
+  float:right;
+}

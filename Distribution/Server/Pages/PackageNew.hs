@@ -47,7 +47,7 @@ import qualified Data.Text.Encoding       as T
 import qualified Data.Text.Encoding.Error as T
 import qualified Data.ByteString.Lazy as BS (ByteString, toStrict)
 
-
+import qualified Distribution.Server.Pages.Package as Old
 
 footer :: Html
 footer = thediv ! [identifier "footer"]
@@ -128,7 +128,14 @@ packagePage' render headLinks top sections
             [ toHtml descriptionText
             , thediv ! [theclass "read-more"] << noHtml
             ]
-          , hr
+          , thediv ! [identifier "more-information"] <<
+            [ thediv ! [identifier "modules"] <<
+              Old.moduleSection render mdocIndex docURL
+            , thediv ! [identifier "dependencies"] <<
+              [toHtml $ "Abcd"
+              , snd (Old.renderDependencies render)
+              ]
+            ]
           ]
 
         descriptionText = "This package comes \"Batteries Included\" with many useful lenses for the types commonly used from the Haskell Platform, and with tools for automatically generating lenses and isomorphisms for user-supplied data types. The combinators in Control.Lens provide a highly generic toolbox for composing families of getters, folds, isomorphisms, traversals, setters and lenses and their indexed variants An overview, with a large number of examples can be found in the An introductory video on the style of code used in this library by Simon Peyton Jones is available from Skills Matter. A video on how to use lenses and how they are constructed is available on youtube. Slides for that second talk can be obtained from comonad.com.More information on the care and feeding of lenses, including a brief tutorial and motivation for their types can be found on the lens wiki.A small game of pong and other more complex examples that manage their state using lenses can be found in the example folderLenses, Folds and With some signatures simplified, the core of the hierarchy of lens-like constructions looks like:"

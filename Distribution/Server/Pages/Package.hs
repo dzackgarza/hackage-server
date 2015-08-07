@@ -8,7 +8,8 @@ module Distribution.Server.Pages.Package (
     renderVersion,
     renderFields,
     renderDownloads,
-    renderChangelog
+    renderChangelog,
+    moduleSection
   ) where
 
 import Distribution.Server.Features.PreferredVersions
@@ -271,7 +272,7 @@ renderDependencies render =
     detailURL = rendPkgUri render </> "dependencies"
 
 showDependencies :: [Dependency] -> Html
-showDependencies deps = commaList (map showDependency deps)
+showDependencies deps = unordList (map showDependency deps)
 
 showDependency ::  Dependency -> Html
 showDependency (Dependency (PackageName pname) vs) = showPkg +++ vsHtml
