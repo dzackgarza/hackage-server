@@ -125,7 +125,8 @@ initHtmlFeature ServerEnv{serverTemplatesDir, serverTemplatesMode,
                    , "reports.html", "report.html"
                    , "maintain-docs.html"
                    , "distro-monitor.html"
-                   , "revisions.html" ]
+                   , "revisions.html"
+                   , "package-page.html"]
 
     return $ \user core@CoreFeature{packageChangeHook}
               packages upload
@@ -579,12 +580,16 @@ mkHtmlCore HtmlUtilities{..}
 
         cacheControlWithoutETag [Public, maxAgeMinutes 5]
 
+        template <- getTemplate templates "package-page.html"
+        return $ toResponse $ template
+          ["docTitle" $= "Template"
+          ]
         -- and put it all together
-        return $ toResponse $ Resource.XHtml $
-            PagesNew.packagePage' render [tagLinks] [deprHtml]
-                              (beforeHtml ++ middleHtml ++ afterHtml
-                                ++ buildStatusHtml)
-                              [] mdocIndex mreadme docURL False
+        {-return $ toResponse $ Resource.XHtml $-}
+            {-PagesNew.packagePage' render [tagLinks] [deprHtml]-}
+                              {-(beforeHtml ++ middleHtml ++ afterHtml-}
+                                {-++ buildStatusHtml)-}
+                              {-[] mdocIndex mreadme docURL False-}
       where
         showDist (dname, info) = toHtml (display dname ++ ":") +++
             anchor ! [href $ distroUrl info] << toHtml (display $ distroVersion info)

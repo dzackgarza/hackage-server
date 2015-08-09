@@ -156,6 +156,7 @@ packagePage' render headLinks top sections
           , paragraph ! [identifier "install-other"] <<
             intersperse (toHtml " | ")
             [ anchor ! [href "#"] << "Source Tarball"
+            +++ anchor ! [href "#"] << " [Browse]"
             , anchor ! [href "#"] << "Package Description"
             , anchor ! [href "#"] << "Haddocks"
             ]
