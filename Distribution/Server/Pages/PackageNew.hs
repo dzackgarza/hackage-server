@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
 module Distribution.Server.Pages.PackageNew (
+    packagePageTemplate,
     packagePage,
     packagePage',
     renderPackageFlags,
@@ -11,6 +12,7 @@ module Distribution.Server.Pages.PackageNew (
     renderChangelog
   ) where
 
+import Distribution.Server.Framework.Templating
 import Distribution.Server.Features.PreferredVersions
 
 import Distribution.Server.Pages.Template (hackagePageWith)
@@ -57,6 +59,16 @@ footer = thediv ! [identifier "footer"]
                       , toHtml " and "
                       , anchor ! [href cabalHomeURL] << "Cabal"
                       , toHtml (" " ++ display cabalVersion) ]
+
+packagePageTemplate :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
+            -> [(String, Html)] -> Maybe TarIndex -> Maybe BS.ByteString
+            -> URL -> Bool
+            -> [TemplateAttr]
+packagePageTemplate render headLinks top sections
+            bottom mdocIndex mreadMe
+            docURL isCandidate =
+  ["docTitle" $= (toHtml $ anchor ! [href "#"] << "Template")
+  ]
 
 packagePage' :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
             -> [(String, Html)] -> Maybe TarIndex -> Maybe BS.ByteString

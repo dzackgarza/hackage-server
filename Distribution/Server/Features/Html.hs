@@ -581,15 +581,11 @@ mkHtmlCore HtmlUtilities{..}
         cacheControlWithoutETag [Public, maxAgeMinutes 5]
 
         template <- getTemplate templates "package-page.html"
-        return $ toResponse $ template
-          ["docTitle" $= "Template"
-          ]
         -- and put it all together
-        {-return $ toResponse $ Resource.XHtml $-}
-            {-PagesNew.packagePage' render [tagLinks] [deprHtml]-}
-                              {-(beforeHtml ++ middleHtml ++ afterHtml-}
-                                {-++ buildStatusHtml)-}
-                              {-[] mdocIndex mreadme docURL False-}
+        return $ toResponse . template $ PagesNew.packagePageTemplate
+          render [tagLinks] [deprHtml]
+          (beforeHtml ++ middleHtml ++ afterHtml ++ buildStatusHtml)
+          [] mdocIndex mreadme docURL False
       where
         showDist (dname, info) = toHtml (display dname ++ ":") +++
             anchor ! [href $ distroUrl info] << toHtml (display $ distroVersion info)
