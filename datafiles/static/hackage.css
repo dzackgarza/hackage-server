@@ -926,3 +926,12 @@ ul.directory-list {
 #dependencies {
   float:right;
 }
+
+#readme-container {
+  clear:both;
+  padding-top: 3%;
+}
+
+#submit-vote {
+  display:inline;
+}

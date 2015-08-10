@@ -400,13 +400,15 @@ renderFields render = [
         ("Copyright",   toHtml $ P.copyright desc),
         ("Author",      toHtml $ author desc),
         ("Maintainer",  maintainField $ rendMaintainer render),
-        ("Stability",   toHtml $ stability desc),
+        ("Stability",   toHtml $ case stability desc of
+                          "" -> "Unknown"
+                          string -> string ),
         ("Category",    commaList . map categoryField $ rendCategory render),
-        ("Home page",   linkField $ homepage desc),
-        ("Bug tracker", linkField $ bugReports desc),
-        ("Source repository", vList $ map sourceRepositoryField $ sourceRepos desc),
+        ("Homepage",   linkField $ homepage desc),
+        ("BugTracker", linkField $ bugReports desc),
+        ("SourceRepository", vList $ map sourceRepositoryField $ sourceRepos desc),
         ("Executables", commaList . map toHtml $ rendExecNames render),
-        ("Uploaded", uncurry renderUploadInfo (rendUploadInfo render))
+        ("UploadTime", uncurry renderUploadInfo (rendUploadInfo render))
       ]
    ++ [ ("Updated", renderUpdateInfo revisionNo utime uinfo)
       | (revisionNo, utime, uinfo) <- maybeToList (rendUpdateInfo render) ]

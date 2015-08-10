@@ -19,7 +19,8 @@ renderVotesAnon :: Int -> PackageName -> (String, Html)
 renderVotesAnon numVotes pkgname =
   ( "Votes",
       form  ! [ action $ "/package/" ++ unPackageName pkgname ++ "/votes"
-              , method      "POST" ]
+              , method      "POST"
+              , identifier "submit-vote" ]
       << thespan <<
       [ toHtml $  show numVotes ++ " "
       , toHtml $  ("[" +++

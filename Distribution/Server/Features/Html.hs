@@ -582,6 +582,7 @@ mkHtmlCore HtmlUtilities{..}
 
         template <- getTemplate templates "package-page.html"
         -- and put it all together
+        {-return $ toResponse $ Resource.XHtml $ PagesNew.packagePage'-}
         return $ toResponse . template $ PagesNew.packagePageTemplate
           render [tagLinks] [deprHtml]
           (beforeHtml ++ middleHtml ++ afterHtml ++ buildStatusHtml)

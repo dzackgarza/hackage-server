@@ -60,12 +60,23 @@ packagePageTemplate render headLinks top sections
             docURL isCandidate =
   [ "docTitle" $= pkgName
   , "pkgName" $= pkgName
+  , "moduleList" $= moduleList
+  , "dependencyList" $= dependencyList
+  , "readme" $= readmeSection render mreadMe
   , "cabalVersion" $= display cabalVersion
   ]
+  ++ mapTuples (Old.renderFields render)
+  ++ mapTuples sections
     where
       pkgid   = rendPkgId render
       pkgVer  = display $ pkgVersion pkgid
       pkgName = display $ packageName pkgid
+
+      moduleList = Old.moduleSection render mdocIndex docURL
+      dependencyList = snd (Old.renderDependencies render)
+
+mapTuples :: [(String, Html)] -> [TemplateAttr]
+mapTuples = map (\(a,b) -> a $= b)
 
 packagePage' :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
             -> [(String, Html)] -> Maybe TarIndex -> Maybe BS.ByteString
@@ -140,6 +151,7 @@ packagePage' render headLinks top sections
           , thediv ! [identifier "more-information"] <<
             [ thediv ! [identifier "modules"] <<
               Old.moduleSection render mdocIndex docURL
+              , snd (Old.renderDependencies render)
             , thediv ! [identifier "dependencies"] <<
               [toHtml $ "Abcd"
               , snd (Old.renderDependencies render)
