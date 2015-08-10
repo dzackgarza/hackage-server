@@ -1,63 +1,77 @@
 <!DOCTYPE html>
 <html>
+
   <head>
     $hackageCssTheme()$
-    <title>$docTitle$ | Hackage</title>
+    <title>$pkgName$ | Hackage</title>
   </head>
 
   <body>
-    <div id="page-header">
-      <ul class="links" id="page-menu">
-        <li>
-          <a href="/">Home</a>
-        </li>
-        <li>
-          <a href="/packages/">Browse</a>
-        </li>
-        <li>
-          <a href="/accounts">User accounts</a>
-        </li>
-        <li>
-          <form action="/packages/search" class="search" method="get">
-            <button type="submit">Search</button>
-            <input type="text" name="terms">
-          </form>
-        </li>
-      </ul>
-      <p class="caption"> Hackage :: Agda</p>
-    </div>
+
+    $header()$
+
     <div id="content" class="package">
+
       <div id="sidebar">
+
         <div id="install">
           <h3>Install</h3>
-          <p id="license">License: <a href>BSD3</a></p>
-          <p id="install-cabal">> cabal install Agda</p><br>
-          <p id="install-distro"><span>Distributions</span><br>
-            Debian (<a href>2.2.6</a>) | Arch (
-            <a href>2.2.6</a>)</p>
-          <p id="install-other"><a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Source Tarball</a> | <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Package Description</a> | <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Haddocks</a></p>
+
+          <p id="license">
+            License: <a href>BSD3</a>
+          </p>
+
+          <p id="install-cabal">
+            > cabal install $pkgName$
+          </p>
+          <br>
+
+          <p id="install-distro">
+            <span>Distributions</span>
+            <br>
+            Debian (<a href="#">2.2.6</a>) |
+            Arch ( <a href="#">2.2.6</a>)
+          </p>
+
+          <p id="install-other">
+            <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Source Tarball</a> |
+            <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Package Description</a> |
+            <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">Haddocks</a>
+          </p>
         </div>
+
         <ul id="information">
           <li>
             <h3>Homepage</h3>
-            <p><a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">http://wiki.portal.chalmers.se/agda/</a></p>
+            <p>
+              <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">http://wiki.portal.chalmers.se/agda/</a>
+            </p>
           </li>
           <li>
             <h3>Bug Reports</h3>
-            <p><a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">http://code.google.com/p/agda/issues/list</a></p>
+            <p>
+              <a href="http://code.haskell.org/~duncan/hackage-server-new-chrome/package-2.html#">http://code.google.com/p/agda/issues/list</a>
+            </p>
           </li>
           <li>
             <h3>Source</h3>
-            <p><a href>https://github.com/agda/agda</a></p>
+            <p>
+              <a href>https://github.com/agda/agda</a>
+            </p>
           </li>
           <li>
             <hr>
           </li>
           <li>
             <h3>Categories</h3>
-            <p><a href="/packages/#cat:Data">Data</a>, <a href="/packages/#cat:Lenses">Lenses</a>, <a href="/packages/#cat:Generics">Generics</a></p>
+            <p>
+              <a href="/packages/#cat:Data">Data</a>,
+              <a href="/packages/#cat:Lenses">Lenses</a>,
+              <a href="/packages/#cat:Generics">Generics</a>
+            </p>
           </li>
         </ul>
+
         <div id="properties">
           <h3>Properties</h3>
           <table class="properties">
@@ -86,11 +100,15 @@
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
+        </div> <!-- /properties -->
+
+      </div> <!-- /sidebar -->
+
       <div id="content-main">
+
         <div>
-          <h2>Agda</h2>
+          <h2>$pkgName$</h2>
+
           <ul id="versions">
             <li id="current-version">2.2.6</li>
             <li>2.2.4</li>
@@ -98,11 +116,30 @@
             <li>2.2.0</li>
             <li>...</li>
           </ul>
-          <span class="view-all-versions"><i><a href>View All Versions</a></i><a href> >></a></span><span style="float:left; font-size: 10px">Current Version: 2.2.8</span><br>
-          <span style="float:left; font-size: 10px">Last Upload: 2015-05-29 13:23:15 UTC</span><br></div>
+
+          <span class="view-all-versions">
+            <i><a href = "#">View All Versions</a></i>
+            <a href> >></a>
+          </span>
+
+          <span style="float:left; font-size: 10px">
+            Current Version: 2.2.8
+          </span>
+          <br>
+
+          <span style="float:left; font-size: 10px">
+            Last Upload: 2015-05-29 13:23:15 UTC
+          </span>
+          <br>
+
+        </div>
+
         <div class="content">
-          <p id="synopsis">A dependently typed functional programming language and proof assistant.<br>
-            <a href="#">[Skip to ReadMe]</a></p>
+          <p id="synopsis">
+            A dependently typed functional programming language and proof assistant.<br>
+            <a href="#">[Skip to ReadMe]</a>
+          </p>
+
           <div id="tags" style="margin-bottom: 20px">
             <h3>Tags:</h3>
             <ul>
@@ -111,12 +148,13 @@
               <li class="system-tag">dependent-types</li>
             </ul>
           </div>
+
           <input type="checkbox" id="header1" class="toggle-box checkmark">
           <label for="header1" class="toggle-box">
             <span></span>
           </label>
+
           <div id="description" class="desc">
-            <p></p>
             <p>This package comes "Batteries Included" with many useful lenses for the types commonly used from the Haskell Platform, and with tools for automatically generating lenses and isomorphisms for user-supplied data types.</p>
             <p>The combinators in <tt>Control.Lens</tt> provide a highly generic toolbox for composing families of getters, folds, isomorphisms, traversals, setters and lenses and their indexed variants.</p>
             <p>An overview, with a large number of examples can be found in the <a href="https://github.com/ekmett/lens#lens-lenses-folds-and-traversals">README</a>.</p>
@@ -148,11 +186,15 @@
             <p>without the need to use any type that isn't already defined in the <tt>Prelude</tt>.</p>
             <p>And you can define a traversal of multiple fields with <tt>Control.Applicative.Applicative</tt>:</p>
             <p>What is provided in this library is a number of stock lenses and traversals for common haskell types, a wide array of combinators for working them, and more exotic functionality, (<em>e.g.</em> getters, setters, indexed folds, isomorphisms).</p>
+
             <div class="read-more"></div>
-          </div>
+          </div> <!-- /description -->
+
           <hr>
+
           <div id="modules">
             <div style="float:right">
+
               <div class="right-mod" style="float:left">
                 <h3>Dependencies</h3>
                 <ul>
@@ -215,6 +257,7 @@
                 </ul>
               </div>
             </div>
+
             <div>
               <h3 style="margin: 2em 0em 0em 0em;">Modules</h3>
               <ul class="modules">
@@ -520,6 +563,8 @@
           </div>
         </div>
       </div>
+
+
       <div class="embedded-author-content">
         <h1>The Cabal library package</h1>
         <p>See the <a href="http://www.haskell.org/cabal/">Cabal web site</a> for more information.</p>
@@ -586,5 +631,8 @@
         </ul>
       </div>
     </div>
+
+  $footer()$
+
   </body>
 </html>

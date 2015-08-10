@@ -51,15 +51,6 @@ import qualified Data.ByteString.Lazy as BS (ByteString, toStrict)
 
 import qualified Distribution.Server.Pages.Package as Old
 
-footer :: Html
-footer = thediv ! [identifier "footer"]
-              << paragraph
-                    << [ toHtml "Produced by "
-                      , anchor ! [href "/"] << "hackage"
-                      , toHtml " and "
-                      , anchor ! [href cabalHomeURL] << "Cabal"
-                      , toHtml (" " ++ display cabalVersion) ]
-
 packagePageTemplate :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
             -> [(String, Html)] -> Maybe TarIndex -> Maybe BS.ByteString
             -> URL -> Bool
@@ -67,8 +58,14 @@ packagePageTemplate :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
 packagePageTemplate render headLinks top sections
             bottom mdocIndex mreadMe
             docURL isCandidate =
-  ["docTitle" $= (toHtml $ anchor ! [href "#"] << "Template")
+  [ "docTitle" $= pkgName
+  , "pkgName" $= pkgName
+  , "cabalVersion" $= display cabalVersion
   ]
+    where
+      pkgid   = rendPkgId render
+      pkgVer  = display $ pkgVersion pkgid
+      pkgName = display $ packageName pkgid
 
 packagePage' :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
             -> [(String, Html)] -> Maybe TarIndex -> Maybe BS.ByteString
@@ -77,7 +74,7 @@ packagePage' :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
 packagePage' render headLinks top sections
             bottom mdocIndex mreadMe
             docURL isCandidate =
-    hackagePageWith [] docTitle docSubtitle docBody [footer]
+    hackagePageWith [] docTitle docSubtitle docBody []
   where
     pkgid   = rendPkgId render
     pkgName = display $ packageName pkgid
@@ -247,7 +244,7 @@ packagePage :: PackageRender -> [Html] -> [Html] -> [(String, Html)]
 packagePage render headLinks top sections
             bottom mdocIndex mreadMe
             docURL isCandidate =
-    hackagePageWith [canonical] docTitle docSubtitle docBody [footer]
+    hackagePageWith [canonical] docTitle docSubtitle docBody []
   where
     pkgid   = rendPkgId render
     pkgName = display $ packageName pkgid
