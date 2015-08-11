@@ -378,15 +378,10 @@ renderVersion (PackageIdentifier pname pversion) allVersions info =
     versionList =
       if length olderVersions <= vmax then olderVersions
         else [versionedLink' (head earlierVersions) "..."] ++ reverse (take vmax (reverse olderVersions))
-      {-if length olderVersions > 5-}
-          {-then [anchor << "..."] ++ take 5 olderVersions-}
-          {-else olderVersions-}
       ++ currentVersion ++
       if length newerVersions <= vmax then newerVersions
-        else take vmax newerVersions ++ [versionedLink' (last laterVersions) "..."]
-      {-if length newerVersions > 5-}
-        {-then take 5 newerVersions ++ [anchor << "..."]-}
-        {-else newerVersions-}
+      else take vmax newerVersions
+      -- ++ [versionedLink' (last laterVersions) "..."]
       where
         olderVersions = map versionedLink earlierVersions
         currentVersion = case pversion of

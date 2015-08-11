@@ -587,9 +587,12 @@ mkHtmlCore HtmlUtilities{..}
               _   -> (concatHtml . intersperse (toHtml ", ") $ map showDist distributions)
           ]
           ++
-          [ "versions"     $= (snd $ PagesNew.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl)
-          , "changelog"    $= (snd $ Pages.renderChangelog render)
-          , "dependencies" $= Pages.renderDependencies render
+          [ "versionList"     $= (snd $ PagesNew.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl)
+          , "thisVersion"     $= (display $ pkgVersion realpkg)
+          , "latestVersion"   $= (PagesNew.latestVersion realpkg (map packageVersion pkgs))
+            {-(display $ PagesNew.latestVersion realpkg (map packageVersion pkgs))-}
+          , "changelog"       $= (snd $ Pages.renderChangelog render)
+          , "dependencies"    $= Pages.renderDependencies render
           ]
       where
         showDist (dname, info) = toHtml (display dname ++ ":") +++

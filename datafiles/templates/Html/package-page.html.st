@@ -15,27 +15,17 @@
       <div class="content-wrap">
 
         <div id="content-header">
-          <h2 id="package-name">$pkgName$</h2>
+          <h2 id="package-name">$pkgName$ $thisVersion$</h2>
 
           <div id="version-info">
-          $versions$
-          <!--
-            <ul>
-              <li id="current-version">2.2.6</li>
-              <li>2.2.4</li>
-              <li>2.2.2</li>
-              <li>2.2.0</li>
-              <li>...</li>
-            </ul>
-            -->
+          $versionList$
             <span>
-              <a href = "#">View All Versions</a>
-              <a href> >></a>
+              <a href = "#">View All Versions >></a>
             </span>
           </div>
 
           <span id="current-version">
-            Current Version: 2.2.8
+            Latest Version: $latestVersion$
           </span>
           <br>
 

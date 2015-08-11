@@ -2,6 +2,7 @@
 module Distribution.Server.Pages.PackageNew
   ( packagePageTemplate
   , renderVersion
+  , latestVersion
   ) where
 
 import Distribution.Server.Framework.Templating
@@ -197,6 +198,13 @@ sourceRepositoryToHtml sr
           toHtml (show sr)
 
 -- | Handle how version links are displayed.
+
+latestVersion :: PackageId -> [Version] -> Html
+latestVersion (PackageIdentifier pname pversion) allVersions =
+  versionLink (last allVersions)
+  where
+    versionLink v = anchor ! [href $ packageURL $ PackageIdentifier pname v] << display v
+
 renderVersion :: PackageId -> [(Version, VersionStatus)] -> Maybe String -> (String, Html)
 renderVersion (PackageIdentifier pname pversion) allVersions info =
   ( if null earlierVersions && null laterVersions then "Version" else "Versions"
@@ -213,15 +221,9 @@ renderVersion (PackageIdentifier pname pversion) allVersions info =
     versionList =
       if length olderVersions <= vmax then olderVersions
         else [versionedLink' (head earlierVersions) "..."] ++ reverse (take vmax (reverse olderVersions))
-      {-if length olderVersions > 5-}
-          {-then [anchor << "..."] ++ take 5 olderVersions-}
-          {-else olderVersions-}
       ++ currentVersion ++
       if length newerVersions <= vmax then newerVersions
-        else take vmax newerVersions ++ [versionedLink' (last laterVersions) "..."]
-      {-if length newerVersions > 5-}
-        {-then take 5 newerVersions ++ [anchor << "..."]-}
-        {-else newerVersions-}
+      else take vmax newerVersions ++ [versionedLink' (last laterVersions) "..."]
       where
         olderVersions = map versionedLink earlierVersions
         currentVersion = case pversion of
@@ -240,6 +242,7 @@ renderVersion (PackageIdentifier pname pversion) allVersions info =
     infoHtml = case info of
       Nothing -> noHtml;
       Just str -> " (" +++ (anchor ! [href str] << "info") +++ ")"
+
 
 
 -----------------------------------------------------------------------------
