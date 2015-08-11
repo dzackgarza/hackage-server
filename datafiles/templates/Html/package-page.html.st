@@ -18,6 +18,8 @@
           <h2 id="package-name">$pkgName$</h2>
 
           <div id="version-info">
+          $versions$
+          <!--
             <ul>
               <li id="current-version">2.2.6</li>
               <li>2.2.4</li>
@@ -25,6 +27,7 @@
               <li>2.2.0</li>
               <li>...</li>
             </ul>
+            -->
             <span>
               <a href = "#">View All Versions</a>
               <a href> >></a>
@@ -37,9 +40,9 @@
           <br>
 
           <span id="last-update">
-            Uploaded: $UploadTime$
+            Uploaded: $uploadTime$
             <br>
-            Votes: $Votes$
+            Votes: $votes$
           </span>
           <br>
 
@@ -106,13 +109,13 @@
           <div id="more-information">
 
             <div id="modules">
-              <h2>Modules</h2>
               <div id="module-list">
                 $moduleList$
               </div> <!-- /module-list -->
             </div> <!-- /modules -->
 
             <div id="dependencies">
+              <h2>Dependencies</h2>
               $dependencyList$
             </div> <!-- /dependencies -->
 
@@ -127,15 +130,16 @@
       <div class="sidebar-box">
         <h3 id="install-header">Install</h3>
 
-        <p id="license">License : $License$</p>
+        <p id="license">License : $license$</p>
 
         <pre id="install-cabal"><code>&gt; cabal install $pkgName$</code></pre>
 
         <div class="clear-div"></div>
 
         <p id="install-distros">
-          <span>Distributions</span><br>
-          $Distributions$
+          <span>Distributions</span>
+          <br>
+          $distributions$
         </p>
 
         <p id="install-other">
@@ -144,34 +148,35 @@
           <a href="#">Haddocks</a>
         </p>
 
-      </div>
+      </div> <!-- /sidebar-box -->
 
       <div class="sidebar-box links">
+        <h3 id="install-header">Links</h3>
         <ul id="information-links">
-          <li><h3>Homepage</h3>
+          <li><h4>Homepage</h4>
             <p>
-              $Homepage$
+              $homePage$
             </p>
           </li>
           <li>
-            <h3>Bug Reports</h3>
+            <h4>Bug Reports</h4>
             <p>
-              $BugTracker$
+              $bugTracker$
             </p>
           </li>
           <li>
-            <h3>Source Repository</h3>
+            <h4>Source Repository</h4>
             <p>
-              $SourceRepository$
+              $sourceRepo$
             </p>
           </li>
           <li>
             <hr>
           </li>
           <li>
-            <h3>Categories</h3>
+            <h4>Categories</h4>
             <p>
-              $Category$
+              $categories$
             </p>
           </li>
           </ul>
@@ -187,19 +192,19 @@
             </tr>
             <tr>
               <th>Copyright</th>
-              <td>$Copyright$</td>
+              <td>$copyright$</td>
             </tr>
             <tr>
-              <th>Author</th>
-              <td>$Author$</td>
+              <th>Author(s)</th>
+              <td>$author$</td>
             </tr>
             <tr>
               <th>Maintainer</th>
-              <td>$Maintainer$</td>
+              <td>$maintainer$</td>
             </tr>
             <tr>
               <th>Stability</th>
-              <td>$Stability$</td>
+              <td>$stability$</td>
             </tr>
           </tbody>
         </table>

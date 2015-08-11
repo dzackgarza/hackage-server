@@ -533,9 +533,7 @@ mkHtmlCore HtmlUtilities{..}
         -- get additional information from other features
         prefInfo <- queryGetPreferredInfo pkgname
         let infoUrl = fmap (\_ -> preferredPackageUri versions "" pkgname) $ sumRange prefInfo
-            beforeHtml = [ Pages.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl
-                         , Pages.renderChangelog render
-                         , Pages.renderDependencies render]
+
         -- and other package indices
         distributions <- queryPackageStatus pkgname
         -- [reverse index disabled] revCount <- revPackageSummary realpkg
@@ -544,13 +542,7 @@ mkHtmlCore HtmlUtilities{..}
         totalDown <- cmFind pkgname `liftM` totalPackageDownloads
         recentDown <- cmFind pkgname `liftM` recentPackageDownloads
         pkgVotesHtml <- renderVotesHtml pkgname
-        let distHtml = case distributions of
-                [] -> []
-                _  -> [("Distributions", concatHtml . intersperse (toHtml ", ") $ map showDist distributions)]
-            afterHtml  = distHtml ++ [ Pages.renderDownloads totalDown recentDown {- versionDown $ packageVersion realpkg-}
-                                    , pkgVotesHtml
-                                     -- [reverse index disabled] ,Pages.reversePackageSummary realpkg revr revCount
-                                     ]
+
         -- bottom sections, currently documentation and readme
         mdoctarblob <- queryDocumentation realpkg
         mdocIndex   <- maybe (return Nothing)
@@ -558,12 +550,10 @@ mkHtmlCore HtmlUtilities{..}
                              mdoctarblob
         let docURL = packageDocsContentUri docs realpkg -- "/package" <//> display realpkg <//> "docs"
 
-        mreadme     <- case rendReadme render of
-                         Nothing -> return Nothing
-                         Just (tarfile, _, offset, _) ->
-                                either (\_err -> return Nothing)
-                                       (return . Just . snd)
-                            =<< liftIO (loadTarEntry tarfile offset)
+        mreadme <- case rendReadme render of
+          Nothing -> return Nothing
+          Just (tarfile, _, offset, _) ->
+            either (\_err -> return Nothing) (return . Just . snd) =<< liftIO (loadTarEntry tarfile offset)
 
         -- extra features like tags and downloads
         tags <- queryTagsForPackage pkgname
@@ -571,6 +561,7 @@ mkHtmlCore HtmlUtilities{..}
         let tagLinks = toHtml [anchor ! [href "/packages/tags"] << "Tags", toHtml ": ",
                                toHtml (renderTags tags)]
         deprs <- queryGetDeprecatedFor pkgname
+
         let deprHtml = case deprs of
               Just fors -> paragraph ! [thestyle "color: red"] << [toHtml "Deprecated", case fors of
                 [] -> noHtml
@@ -582,11 +573,24 @@ mkHtmlCore HtmlUtilities{..}
 
         template <- getTemplate templates "package-page.html"
         -- and put it all together
-        {-return $ toResponse $ Resource.XHtml $ PagesNew.packagePage'-}
         return $ toResponse . template $ PagesNew.packagePageTemplate
           render [tagLinks] [deprHtml]
-          (beforeHtml ++ middleHtml ++ afterHtml ++ buildStatusHtml)
+          (middleHtml ++ buildStatusHtml)
           [] mdocIndex mreadme docURL False
+          ++
+          [ "downloads" $= (snd $ Pages.renderDownloads totalDown recentDown)
+          ,  "votes"    $= snd pkgVotesHtml
+          ]
+          ++
+          [ "distributions" $= case distributions of
+              []  -> toHtml "None"
+              _   -> (concatHtml . intersperse (toHtml ", ") $ map showDist distributions)
+          ]
+          ++
+          [ "versions"     $= (snd $ PagesNew.renderVersion realpkg (classifyVersions prefInfo $ map packageVersion pkgs) infoUrl)
+          , "changelog"    $= (snd $ Pages.renderChangelog render)
+          , "dependencies" $= Pages.renderDependencies render
+          ]
       where
         showDist (dname, info) = toHtml (display dname ++ ":") +++
             anchor ! [href $ distroUrl info] << toHtml (display $ distroVersion info)

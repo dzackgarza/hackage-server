@@ -1,15 +1,21 @@
 -- Body of the HTML page for a package
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
-module Distribution.Server.Pages.Package (
-    packagePage,
-    renderPackageFlags,
-    renderDependencies,
-    renderDetailedDependencies,
-    renderVersion,
-    renderFields,
-    renderDownloads,
-    renderChangelog,
-    moduleSection
+module Distribution.Server.Pages.Package
+  ( packagePage
+  , renderPackageFlags
+  , renderDependencies
+  , renderDetailedDependencies
+  , renderVersion
+  , renderFields
+  , renderDownloads
+  , renderChangelog
+  , moduleSection
+  , rendLicense
+  , maintainField
+  , linkField
+  , categoryField
+  , sourceRepositoryToHtml
+  , readmeSection
   ) where
 
 import Distribution.Server.Features.PreferredVersions
@@ -358,23 +364,47 @@ renderDetailedDependencies pkgRender =
 
 renderVersion :: PackageId -> [(Version, VersionStatus)] -> Maybe String -> (String, Html)
 renderVersion (PackageIdentifier pname pversion) allVersions info =
-    (if null earlierVersions && null laterVersions then "Version" else "Versions", versionList +++ infoHtml)
-  where (earlierVersions, laterVersionsInc) = span ((<pversion) . fst) allVersions
-        (mThisVersion, laterVersions) = case laterVersionsInc of
-            (v:later) | fst v == pversion -> (Just v, later)
-            later -> (Nothing, later)
-        versionList = commaList $ map versionedLink earlierVersions
-                               ++ (case pversion of
-                                      Version [] [] -> []
-                                      _ -> [strong ! (maybe [] (status . snd) mThisVersion) << display pversion]
-                                  )
-                               ++ map versionedLink laterVersions
-        versionedLink (v, s) = anchor ! (status s ++ [href $ packageURL $ PackageIdentifier pname v]) << display v
-        status st = case st of
-            NormalVersion -> []
-            DeprecatedVersion  -> [theclass "deprecated"]
-            UnpreferredVersion -> [theclass "unpreferred"]
-        infoHtml = case info of Nothing -> noHtml; Just str -> " (" +++ (anchor ! [href str] << "info") +++ ")"
+  ( if null earlierVersions && null laterVersions then "Version" else "Versions"
+  , unordList versionList +++ infoHtml
+  )
+  where
+    (earlierVersions, laterVersionsInc) = span ((<pversion) . fst) allVersions
+
+    (mThisVersion, laterVersions) = case laterVersionsInc of
+        (v:later) | fst v == pversion -> (Just v, later)
+        later -> (Nothing, later)
+
+    vmax = 2
+    versionList =
+      if length olderVersions <= vmax then olderVersions
+        else [versionedLink' (head earlierVersions) "..."] ++ reverse (take vmax (reverse olderVersions))
+      {-if length olderVersions > 5-}
+          {-then [anchor << "..."] ++ take 5 olderVersions-}
+          {-else olderVersions-}
+      ++ currentVersion ++
+      if length newerVersions <= vmax then newerVersions
+        else take vmax newerVersions ++ [versionedLink' (last laterVersions) "..."]
+      {-if length newerVersions > 5-}
+        {-then take 5 newerVersions ++ [anchor << "..."]-}
+        {-else newerVersions-}
+      where
+        olderVersions = map versionedLink earlierVersions
+        currentVersion = case pversion of
+          Version [] [] -> []
+          _ -> [strong ! (maybe [] (status . snd) mThisVersion) << display pversion]
+        newerVersions = map versionedLink laterVersions
+
+    versionedLink (v, s) = anchor ! (status s ++ [href $ packageURL $ PackageIdentifier pname v]) << display v
+    versionedLink' (v, s) str  = anchor ! (status s ++ [href $ packageURL $ PackageIdentifier pname v]) << str
+
+    status st = case st of
+        NormalVersion -> []
+        DeprecatedVersion  -> [theclass "deprecated"]
+        UnpreferredVersion -> [theclass "unpreferred"]
+
+    infoHtml = case info of
+      Nothing -> noHtml;
+      Just str -> " (" +++ (anchor ! [href str] << "info") +++ ")"
 
 renderChangelog :: PackageRender -> (String, Html)
 renderChangelog render =
@@ -396,7 +426,7 @@ renderDownloads totalDown recentDown {- versionDown version -} =
 renderFields :: PackageRender -> [(String, Html)]
 renderFields render = [
         -- Cabal-Version
-        ("License",     rendLicense),
+        ("License",     rendLicense render),
         ("Copyright",   toHtml $ P.copyright desc),
         ("Author",      toHtml $ author desc),
         ("Maintainer",  maintainField $ rendMaintainer render),
@@ -428,24 +458,31 @@ renderFields render = [
       where
         revisionsURL = display (rendPkgId render) </> "revisions/"
 
-    linkField url = case url of
-        [] -> noHtml
-        _  -> anchor ! [href url] << url
-    categoryField cat = anchor ! [href $ "/packages/#cat:" ++ cat] << cat
-    maintainField mnt = case mnt of
-        Nothing -> strong ! [theclass "warning"] << toHtml "none"
-        Just n  -> toHtml n
     sourceRepositoryField sr = sourceRepositoryToHtml sr
 
-    rendLicense = case rendLicenseFiles render of
-      []            -> toHtml (rendLicenseName render)
-      [licenseFile] -> anchor ! [ href (rendPkgUri render </> "src" </> licenseFile) ]
-                             << rendLicenseName render
-      _licenseFiles -> toHtml (rendLicenseName render)
-                       +++ "["
-                       +++ anchor ! [ href (rendPkgUri render </> "src") ]
-                                 << "multiple licese files"
-                       +++ "]"
+linkField :: String -> Html
+linkField url = case url of
+  [] -> noHtml
+  _  -> anchor ! [href url] << url
+
+categoryField :: String -> Html
+categoryField cat = anchor ! [href $ "/packages/#cat:" ++ cat] << cat
+
+maintainField :: Maybe String -> Html
+maintainField mnt = case mnt of
+    Nothing -> strong ! [theclass "warning"] << toHtml "none"
+    Just n  -> toHtml n
+
+rendLicense :: PackageRender -> Html
+rendLicense render = case rendLicenseFiles render of
+  []            -> toHtml (rendLicenseName render)
+  [licenseFile] -> anchor ! [ href (rendPkgUri render </> "src" </> licenseFile) ]
+                          << rendLicenseName render
+  _licenseFiles -> toHtml (rendLicenseName render)
+                    +++ "["
+                    +++ anchor ! [ href (rendPkgUri render </> "src") ]
+                              << "multiple licese files"
+                    +++ "]"
 
 
 sourceRepositoryToHtml :: SourceRepo -> Html

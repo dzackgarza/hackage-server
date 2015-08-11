@@ -15,6 +15,7 @@ body {
   text-align: left;
   min-height: 100%;
   position: relative;
+  line-height: 1;
 }
 
 p {
@@ -330,7 +331,10 @@ ul.links li form button:hover {
 }
 
 #synopsis {
-  /*display: none;*/
+  border-top: 1px solid #999999;
+  clear: left;
+  font-size: 1.2em;
+  padding-top: 0.166666em;
 }
 
 .no-frame #synopsis {
@@ -725,6 +729,10 @@ ul.directory-list {
   box-shadow: 0 0 5px #AAAAAA;
 }
 
+.sidebar-box a {
+  overflow-wrap: break-word;
+}
+
 #install-header {
   float: left;
 }
@@ -761,6 +769,7 @@ ul.directory-list {
   list-style: none;
   padding-bottom: 2%;
   margin: 0 0 0 0;
+  clear:both;
 }
 
 .properties {
@@ -850,6 +859,10 @@ ul.directory-list {
   display: none;
 }
 
+.toggle-box span {
+  line-height: initial;
+}
+
 .toggle-box + label span:before {
   content: "+";
   margin-right: 10px;
@@ -934,4 +947,8 @@ ul.directory-list {
 
 #submit-vote {
   display:inline;
+}
+
+.properties th {
+  vertical-align: top;
 }
